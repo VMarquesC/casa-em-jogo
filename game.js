@@ -1,6 +1,6 @@
 // Estados globais que precisam existir antes de qualquer callback/evento.
 var keys = Object.create(null);
-var NAV_STEP = 4;
+var NAV_STEP = 3;
 const C=document.querySelector("#canvas"),ctx=C.getContext("2d");
 ctx.imageSmoothingEnabled=false;
 const SPRITES={};
@@ -34,29 +34,43 @@ const MISSIONS=[{id:"talk3",text:"Converse com 3 participantes diferentes",goal:
 
 const FLOOR_RECTS=[
 
+ // DESPENSA
  {room:"DESPENSA",x:40,y:25,w:270,h:178},
 
- {room:"COZINHA",x:38,y:220,w:282,h:397},
- {room:"PASSAGEM COZINHA/SALA",x:288,y:292,w:102,h:190},
+ // COZINHA — interior inteiro dentro do contorno vermelho
+ {room:"COZINHA",x:40,y:218,w:282,h:402},
+ // corredor da direita da cozinha até a sala
+ {room:"PASSAGEM COZINHA/SALA",x:282,y:292,w:112,h:195},
 
- {room:"SALA",x:332,y:110,w:302,h:390},
- {room:"PASSAGEM SALA/HALL",x:332,y:432,w:302,h:82},
+ // SALA — área inteira dentro do contorno vermelho
+ {room:"SALA",x:333,y:106,w:305,h:395},
+ // faixa azul logo abaixo do sofá / em frente à estante
+ {room:"PASSAGEM SALA/HALL",x:331,y:426,w:310,h:95},
 
- {room:"HALL",x:330,y:458,w:305,h:176},
- {room:"HALL",x:295,y:562,w:382,h:82},
+ // HALL — respeitando o contorno vermelho das estantes
+ {room:"HALL",x:332,y:458,w:306,h:175},
+ {room:"HALL",x:297,y:560,w:384,h:84},
 
- {room:"PASSAGEM COZINHA/PÁTIO",x:148,y:584,w:115,h:70},
- {room:"PÁTIO / PISCINA",x:12,y:606,w:600,h:159},
+ // ligação cozinha/pátio
+ {room:"PASSAGEM COZINHA/PÁTIO",x:146,y:583,w:121,h:73},
 
- {room:"QUARTO",x:625,y:15,w:360,h:315},
- {room:"PASSAGEM QUARTO/CORREDOR",x:690,y:280,w:180,h:90},
+ // PÁTIO — somente dentro do contorno vermelho
+ {room:"PÁTIO / PISCINA",x:12,y:605,w:600,h:160},
 
- {room:"CORREDOR",x:602,y:300,w:285,h:190},
- {room:"PASSAGEM CORREDOR/LOUNGE",x:612,y:430,w:190,h:95},
+ // QUARTO — toda a área interna do contorno vermelho
+ {room:"QUARTO",x:624,y:16,w:360,h:315},
+ // corredor central vertical/horizontal marcado de azul
+ {room:"PASSAGEM QUARTO/CORREDOR",x:686,y:272,w:188,h:104},
 
- {room:"LOUNGE",x:615,y:465,w:180,h:282},
- {room:"PASSAGEM LOUNGE/CONFESSIONÁRIO",x:740,y:605,w:95,h:142},
+ // CORREDOR — incluindo faixa azul à direita do jogador
+ {room:"CORREDOR",x:603,y:297,w:290,h:198},
+ {room:"PASSAGEM CORREDOR/LOUNGE",x:610,y:424,w:200,h:108},
 
+ // LOUNGE — eixo central e lateral direita livres
+ {room:"LOUNGE",x:612,y:462,w:190,h:286},
+ {room:"PASSAGEM LOUNGE/CONFESSIONÁRIO",x:738,y:598,w:105,h:150},
+
+ // CONFESSIONÁRIO — toda a área interna do contorno vermelho
  {room:"CONFESSIONÁRIO",x:770,y:470,w:225,h:285}
 
 ];
@@ -66,68 +80,72 @@ const FLOOR_RECTS=[
 const SOLIDS=[
 
  // DESPENSA
- [55,55,48,108],[107,62,105,58],[218,48,66,115],[72,161,180,28],
+ [54,55,48,108],
+ [106,61,105,59],
+ [218,48,66,115],
+ [73,161,178,28],
 
- // COZINHA - móveis encostados em paredes
- [45,250,46,145],
- [96,248,157,60],
- [255,248,35,120],
- [43,420,37,160],
- // direita da cozinha: afina o obstáculo para liberar a faixa azul
- [273,420,17,150],
+ // COZINHA — bordas e móveis
+ [44,248,46,145],
+ [95,247,156,59],
+ [254,247,35,120],
+ [43,420,37,159],
+ // faixa azul direita liberada: obstáculo mais fino
+ [278,420,10,143],
 
- // ilha central
- [127,385,108,148],
- [149,535,30,34],[198,535,30,34],
+ // ilha
+ [126,384,109,149],
+ [149,535,30,33],
+ [198,535,30,33],
 
- // SALA
- // sofá principal mais justo ao sprite real
- [447,308,113,106],
- [454,344,70,45],
- // mesa
- [454,365,71,50],
- // faixa inferior totalmente livre; estante fica mais baixa/estreita
- [454,451,112,22],
+ // SALA — sofá/mesa/estante ajustados ao desenho
+ [448,307,112,105],
+ [455,344,68,43],
+ [456,365,69,48],
+ // estante inferior: deixa corredor azul por cima/embaixo
+ [455,452,108,18],
 
- // HALL
- [350,486,66,64],[550,486,57,64],
- [315,588,46,40],[580,588,38,40],
+ // HALL — estantes laterais apenas
+ [350,487,65,63],
+ [551,487,55,63],
+ [315,589,45,38],
+ [581,589,37,38],
 
- // PÁTIO / PISCINA
- [70,630,80,105],
- [110,690,480,75],
- [365,635,72,58],[505,635,76,58],
+ // PÁTIO
+ [70,631,80,104],
+ [110,691,480,74],
+ [365,635,72,57],
+ [505,635,76,57],
 
- // QUARTO - camas e malas, mantendo cruz central livre
- [650,45,80,118],
- [837,45,73,118],
- [916,45,48,118],
- [665,200,74,82],
- [828,200,68,82],
- [910,200,48,82],
+ // QUARTO — camas/malas sem fechar o cruzamento central
+ [650,45,80,117],
+ [837,45,73,117],
+ [916,45,48,117],
+ [665,199,74,82],
+ [829,199,67,82],
+ [910,199,48,82],
  [748,52,70,68],
- [700,207,52,65],
- [809,207,38,65],
+ [700,207,50,63],
+ [811,207,36,63],
 
- // CORREDOR
- // só a parede/estrutura preta real, deixando a faixa azul inferior/direita
- [846,326,14,92],
+ // CORREDOR — só o bloco estrutural preto real à direita
+ // deixa livre a faixa azul horizontal
+ [850,326,10,82],
 
- // LOUNGE
- // sofás laterais finos; eixo central vertical livre
- [642,510,42,65],
- [642,607,42,100],
- [730,515,26,75],
- [730,618,26,68],
+ // LOUNGE — sofás laterais, centro e lateral direita livres
+ [643,510,38,64],
+ [643,607,38,98],
+ [732,516,22,73],
+ [732,620,22,65],
 
  // CONFESSIONÁRIO
  // bancada superior
- [792,505,178,48],
- // móveis laterais mais finos para liberar AS DUAS LATERAIS azuis
- [798,560,20,170],
- [950,560,20,170],
+ [792,505,178,46],
+ // laterais afinadas para liberar as duas faixas azuis
+ [798,560,16,168],
+ [954,560,16,168],
  // cadeira/câmera central
- [861,610,40,108]
+ [862,610,38,106]
 
 ];
 
@@ -146,7 +164,7 @@ const DOOR_LANES=[];
 
 
 
-const PLAYER_RADIUS=6;
+const PLAYER_RADIUS=5;
 let collisionDebug=false;
 
 function rawFloorPoint(x,y){
@@ -551,7 +569,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.3.5");
+ toast("CASA EM JOGO • V1.3.6");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -1117,7 +1135,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.3.5] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.3.6] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
