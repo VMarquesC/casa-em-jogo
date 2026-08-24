@@ -33,12 +33,12 @@ const MISSIONS=[{id:"talk3",text:"Converse com 3 participantes diferentes",goal:
 const FLOOR_RECTS=[
 
  {room:"SALA",x:168,y:22,w:276,h:165},
- {room:"SALA",x:252,y:82,w:170,h:95},
+ {room:"SALA",x:244,y:78,w:184,h:103},
  {room:"PASSAGEM SALA/CORREDOR",x:330,y:168,w:150,h:84},
 
  {room:"COZINHA",x:465,y:22,w:244,h:278},
  {room:"COZINHA",x:490,y:215,w:162,h:55},
- {room:"PASSAGEM COZINHA/QUARTO",x:656,y:126,w:64,h:88},
+ {room:"PASSAGEM COZINHA/QUARTO",x:642,y:118,w:82,h:102},
  {room:"PASSAGEM SALA/COZINHA",x:438,y:95,w:72,h:148},
  {room:"PASSAGEM COZINHA/CORREDOR",x:438,y:205,w:75,h:105},
 
@@ -78,14 +78,14 @@ const SOLIDS=[
  [181,31,238,49],
  [181,64,36,89],
  [406,63,28,91],
- [300,103,50,32],
+ 
  [173,145,31,30],
 
  // COZINHA
  [474,62,164,46],
  [638,48,34,79],
  [548,137,80,75],
- [649,126,18,70],
+ 
  [690,195,31,72],
  [414,193,40,61],
  [462,219,30,74],
@@ -568,7 +568,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.4.2");
+ toast("CASA EM JOGO • V1.4.3");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -1135,7 +1135,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.4.2] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.4.3] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
