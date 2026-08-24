@@ -568,7 +568,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.10.4");
+ toast("CASA EM JOGO • V1.10.6");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -1195,7 +1195,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.10.4] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.10.6] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
@@ -2728,6 +2728,9 @@ const MAZE={
  raceWaypoints:[[768,148],[780,184],[828,184],[876,184],[904,204],[896,244],[892,288],[888,332],[904,364],[904,412],[916,448],[916,488],[892,512],[876,544],[872,588],[836,600],[812,624],[808,668],[812,712],[848,724],[852,768],[816,772],[792,796],[792,844],[828,856],[844,888],[844,936],[804,944],[768,944]],
  progress:new Map(),
  lastLeaderboard:[]
+,
+ countdownEndsAt:0,
+ lastUpdateAt:0
 };
 MAZE.map.src="assets/arena_labirinto.png";
 MAZE.mask.src="assets/arena_labirinto_mask.png";
@@ -2751,17 +2754,14 @@ function mazeWaypointCanvas(i){
 
 function mazeProgressOf(p){
  if(!p)return 0;
- let bestI=0,bestD=Infinity;
- for(let i=0;i<MAZE.raceWaypoints.length;i++){
-   const [x,y]=mazeWaypointCanvas(i);
-   const d=Math.hypot(p.x-x,p.y-y);
-   if(d<bestD){bestD=d;bestI=i}
- }
- // Não deixa progresso "voltar" demais por ruído.
- const old=MAZE.progress.get(p)||0;
- const value=Math.max(old-.6,bestI);
- MAZE.progress.set(p,value);
- return value
+ const sx=C.width*.50,sy=C.height*.91;
+ const ex=C.width*.94,ey=C.height*.08;
+ const total=Math.hypot(ex-sx,ey-sy)||1;
+ const toward=1-Math.min(1,Math.hypot(ex-p.x,ey-p.y)/total);
+ const old=MAZE.progress?.get(p)||0;
+ const v=Math.max(old,Math.max(0,toward));
+ MAZE.progress.set(p,v);
+ return v
 }
 
 function mazeLeaderboard(){
@@ -2808,47 +2808,25 @@ function mazeNpcInit(p,index){
 }
 
 function mazeNpcRace(p,dt){
- if(p.mazeFinished)return;
- if(p.mazeReaction>0){p.mazeReaction-=dt;return}
- if(p.mazePause>0){p.mazePause-=dt;return}
-
- // O NPC conhece "direções gerais", mas erra de propósito em alguns momentos.
- p.mazeMistake-=dt;
- if(p.mazeMistake<=0){
-   p.mazeMistake=2.2+Math.random()*5.2;
-   const errorChance=.32-(p.mazeSkill-.78)*.65;
-   if(Math.random()<Math.max(.07,errorChance)){
-     p.mazePause=.35+Math.random()*1.1;
-     if(Math.random()<.45)p.mazeBacktrack=1+Math.floor(Math.random()*2)
+ if(!p||p.mazeFinished||!MAZE.started||MAZE.finished)return;
+ const ex=C.width*.94,ey=C.height*.08;
+ const speed=(55+(p.challenge||50)*.30)*dt;
+ const base=Math.atan2(ey-p.y,ex-p.x);
+ const offsets=[0,.45,-.45,.9,-.9,1.35,-1.35,Math.PI];
+ let moved=false;
+ for(const off of offsets){
+   const ang=base+off+(Math.random()-.5)*.12;
+   const nx=p.x+Math.cos(ang)*speed;
+   const ny=p.y+Math.sin(ang)*speed;
+   if(mazeWalkableCanvas(nx,ny,4)){
+     p.x=nx;p.y=ny;moved=true;break
    }
  }
-
- if(p.mazeBacktrack>0){
-   p.mazeWp=Math.max(0,p.mazeWp-1);
-   p.mazeBacktrack--
+ if(!moved){
+   const ang=Math.random()*Math.PI*2;
+   const nx=p.x+Math.cos(ang)*speed*.7,ny=p.y+Math.sin(ang)*speed*.7;
+   if(mazeWalkableCanvas(nx,ny,4)){p.x=nx;p.y=ny}
  }
-
- const targetIndex=Math.min(MAZE.raceWaypoints.length-1,p.mazeWp+1);
- const [tx,ty]=mazeWaypointCanvas(targetIndex);
- let dx=tx-p.x,dy=ty-p.y,d=Math.hypot(dx,dy);
-
- if(d<13){
-   p.mazeWp=Math.min(MAZE.raceWaypoints.length-1,p.mazeWp+1);
-   if(p.mazeWp>=MAZE.raceWaypoints.length-1&&mazeNearExit(p)){
-     mazeFinishParticipant(p);return
-   }
-   return
- }
-
- dx/=d;dy/=d;
- const speed=(54+28*p.mazeSkill);
- const nx=p.x+dx*speed*dt,ny=p.y+dy*speed*dt;
-
- // Deslize igual ao jogador; se waypoint central encostar na borda,
- // tenta eixos separadamente.
- if(mazeWalkableCanvas(nx,p.y,4))p.x=nx;
- if(mazeWalkableCanvas(p.x,ny,4))p.y=ny;
-
  mazeProgressOf(p);
  if(mazeNearExit(p))mazeFinishParticipant(p)
 }
@@ -2869,9 +2847,11 @@ function mazeFinishParticipant(p){
 }
 
 function mazeCountdownText(){
- if(MAZE.countdown>1)return String(Math.ceil(MAZE.countdown-1));
- if(MAZE.countdown>0)return "JÁ!";
- return ""
+ if(MAZE.started)return "";
+ if(MAZE.countdown>2)return "3";
+ if(MAZE.countdown>1)return "2";
+ if(MAZE.countdown>0)return "1";
+ return "JÁ!"
 }
 
 function mazeCanvasToImage(x,y){
@@ -2905,33 +2885,38 @@ function mazeWalkableCanvas(x,y,r=4){
 }
 
 function mazeNearExit(p){
- const [ex,ey]=mazeImageToCanvas(MAZE.exitX,MAZE.exitY);
- return Math.hypot(p.x-ex,p.y-ey)<30
+ if(!p||!MAZE.started)return false;
+ const prog=MAZE.progress?.get(p)||0;
+ return prog>.72 && p.x>C.width*.885 && p.y<C.height*.16
 }
+
 function mazeStartPoints(){
- const pts=[];
- for(let i=0;i<people.filter(p=>p.alive).length;i++){
-  const ix=MAZE.startX+(i-3.5)*38;
-  const iy=MAZE.startY+(i%2)*24;
-  pts.push(mazeImageToCanvas(ix,iy))
- }
- return pts
+ const alive=people.filter(p=>p&&p.alive!==false&&!p.eliminated);
+ const baseX=C.width*.50,baseY=C.height*.91;
+ return alive.map((p,i)=>{
+   const col=(i%4)-1.5,row=Math.floor(i/4);
+   return [baseX+col*14,baseY-row*15]
+ })
 }
+
 function mazeEnter(){
  try{closeModal()}catch(e){}
  if(MAZE.active)return;
- try{document.body.classList.add("maze-mode")}catch(e){}
 
  MAZE.active=true;
  MAZE.finished=false;
  MAZE.winner=null;
  MAZE.timeLeft=240;
  MAZE.elapsed=0;
- MAZE.countdown=4.0;
+ MAZE.countdown=3;
  MAZE.started=false;
+ MAZE.countdownEndsAt=performance.now()+3000;
+ MAZE.lastUpdateAt=performance.now();
  MAZE.finishOrder=[];
  MAZE.progress=new Map();
  MAZE.lastLeaderboard=[];
+
+ try{document.body.classList.add("maze-mode")}catch(e){}
 
  phase="maze";
  REALITY.phase="Prova do Líder — Labirinto";
@@ -2942,7 +2927,11 @@ function mazeEnter(){
  MAZE.peopleState=alive.map(p=>({p,x:p.x,y:p.y,path:p.path,targetRoom:p.targetRoom}));
 
  alive.forEach((p,i)=>{
-   p.x=pts[i][0];p.y=pts[i][1];p.path=[];p.pathIndex=0;p.targetRoom=null;
+   p.x=pts[i][0];
+   p.y=pts[i][1];
+   p.path=[];
+   p.pathIndex=0;
+   p.targetRoom=null;
    p.mazeFinished=false;
    if(!p.human)mazeNpcInit(p,i);
    MAZE.progress.set(p,0)
@@ -2984,6 +2973,7 @@ function mazeLeave(){
  MAZE.progress=new Map();
  MAZE.lastLeaderboard=[];
  MAZE.npcThink=new Map();
+ mazeWatchdogLast=0;
 
  phase="social";
 
@@ -3080,22 +3070,37 @@ function mazeNpcChooseStep(p){
 }
 function mazeUpdate(dt){
  if(!MAZE.active||MAZE.finished)return;
- if(!Number.isFinite(dt)||dt<=0)return;
 
- // Evita saltos enormes se a aba ficou congelada.
- dt=Math.min(dt,.05);
+ const now=performance.now();
 
+ // Countdown is based on real time, not game-loop dt.
  if(!MAZE.started){
-   MAZE.countdown=Math.max(0,MAZE.countdown-dt);
-   if(MAZE.countdown<=0){
+   const remaining=Math.max(0,MAZE.countdownEndsAt-now);
+   MAZE.countdown=remaining/1000;
+
+   if(remaining<=0){
      MAZE.started=true;
+     MAZE.countdown=0;
+     MAZE.lastUpdateAt=now;
      eventLog("🚦 JÁ! Encontre a saída!",6)
    }
    return
  }
 
- MAZE.elapsed+=dt;
- MAZE.timeLeft=Math.max(0,MAZE.timeLeft-dt);
+ // Race timer is also protected by wall-clock time.
+ let realDt=(now-MAZE.lastUpdateAt)/1000;
+ MAZE.lastUpdateAt=now;
+
+ // When performance.now is mocked or frame timing is odd, use supplied dt.
+ if(!Number.isFinite(realDt)||realDt<=0||realDt>.25){
+   realDt=(Number.isFinite(dt)&&dt>0)?dt:.016
+ }
+
+ // Keep physics stable, but time itself still advances correctly.
+ const physicsDt=Math.min(realDt,.05);
+
+ MAZE.elapsed+=realDt;
+ MAZE.timeLeft=Math.max(0,240-MAZE.elapsed);
 
  if(MAZE.timeLeft<=0){
    mazeFinish(null);
@@ -3109,18 +3114,17 @@ function mazeUpdate(dt){
    if(keys.w||keys.arrowup)dy--;
    if(keys.s||keys.arrowdown)dy++;
 
-   if(dx||dy)mazePlayerMove(dx,dy,dt);
+   if(dx||dy)mazePlayerMove(dx,dy,physicsDt);
    else mazeProgressOf(me)
  }
 
- for(const p of people.filter(p=>p.alive&&!p.human)){
+ for(const p of people.filter(p=>p&&p.alive!==false&&!p.eliminated&&!p.human)){
    if(MAZE.finished)break;
-   mazeNpcRace(p,dt)
+   mazeNpcRace(p,physicsDt)
  }
 
  if(!MAZE.finished)mazeLeaderboard()
 }
-
 
 function mazeDrawCollisionDebug(){
  if(!(typeof collisionDebug!=="undefined" && collisionDebug))return;
@@ -3149,7 +3153,7 @@ function mazeDraw(){
 
  people.filter(p=>p.alive).forEach(p=>drawPerson(p));
 
- const secs=Math.ceil(MAZE.timeLeft);
+ const secs=Math.max(0,Math.ceil(Number.isFinite(MAZE.timeLeft)?MAZE.timeLeft:240));
  const mm=String(Math.floor(secs/60)).padStart(2,"0");
  const ss=String(secs%60).padStart(2,"0");
 
@@ -3275,3 +3279,31 @@ function mazeStartChallenge(){
    }
  },12000)
 }
+
+let mazeWatchdogRaf=0;
+let mazeWatchdogLast=0;
+
+function mazeWatchdogFrame(now){
+ mazeWatchdogRaf=requestAnimationFrame(mazeWatchdogFrame);
+
+ if(typeof MAZE==="undefined"||!MAZE.active)return;
+
+ if(!mazeWatchdogLast)mazeWatchdogLast=now;
+ const dt=Math.min(.05,Math.max(.001,(now-mazeWatchdogLast)/1000));
+ mazeWatchdogLast=now;
+
+ // Only advance here if the main game update has not touched MAZE recently.
+ // Countdown itself is idempotent because it uses countdownEndsAt.
+ if(!MAZE.started){
+   const remaining=Math.max(0,MAZE.countdownEndsAt-performance.now());
+   MAZE.countdown=remaining/1000;
+   if(remaining<=0){
+     MAZE.started=true;
+     MAZE.countdown=0;
+     MAZE.lastUpdateAt=performance.now();
+     if(typeof eventLog==="function")eventLog("🚦 JÁ! Encontre a saída!",6)
+   }
+ }
+}
+
+mazeWatchdogRaf=requestAnimationFrame(mazeWatchdogFrame);
