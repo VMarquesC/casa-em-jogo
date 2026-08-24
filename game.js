@@ -568,7 +568,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.5.0");
+ toast("CASA EM JOGO • V1.6.0");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -612,6 +612,7 @@ function showFatalError(title,err){
 function modalOpen(){return !document.querySelector("#modal").classList.contains("hidden")}
 function uiBlocking(){return dialogueOpen||modalOpen()}
 function update(dt){
+ if(typeof LIVING!=="undefined")livingTick(dt);
  if(typeof REALITY!=="undefined")realityTick(dt);
 
  actionCd=Math.max(0,actionCd-dt);roomActionCd=Math.max(0,roomActionCd-dt);stats.energy=Math.max(0,stats.energy-dt*.09);if(!uiBlocking())eventCd=Math.max(-1,eventCd-dt);
@@ -1059,6 +1060,26 @@ function drawPerson(p){
  ctx.font="bold 10px system-ui";ctx.textAlign="center";ctx.lineWidth=3;ctx.strokeStyle="#07101d";ctx.strokeText(p.name,p.x,p.y-38);ctx.fillStyle="#fff";ctx.fillText(p.name,p.x,p.y-38);
  if(p.name===leader){ctx.fillStyle="#ffd25f";ctx.font="bold 13px system-ui";ctx.fillText("♛",p.x,p.y-50)}if(p.name===immune){ctx.strokeStyle="#74e39a";ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y+1,15,0,Math.PI*2);ctx.stroke()}if(p===me){ctx.strokeStyle="#57d9ff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,18,0,Math.PI*2);ctx.stroke()}
  ctx.restore()
+
+ if(typeof LIVING!=="undefined"){
+   const mood=livingMood(p);
+   ctx.font="11px system-ui";
+   ctx.textAlign="center";
+   ctx.fillStyle="rgba(15,20,30,.82)";
+   ctx.fillRect(p.x-13,p.y-31,26,14);
+   ctx.fillStyle="#fff";
+   ctx.fillText(mood,p.x,p.y-20);
+
+   const thought=livingRecentThought(p);
+   if(thought && !p.human){
+     ctx.font="10px system-ui";
+     const w=Math.min(150,ctx.measureText(thought).width+14);
+     ctx.fillStyle="rgba(255,255,255,.93)";
+     ctx.fillRect(p.x-w/2,p.y-54,w,18);
+     ctx.fillStyle="#1f2937";
+     ctx.fillText(thought.length>24?thought.slice(0,23)+"…":thought,p.x,p.y-41);
+   }
+ }
 }
 function toggleCollisionDebug(){
  collisionDebug=!collisionDebug;
@@ -1137,7 +1158,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.5.0] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.6.0] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
@@ -1256,27 +1277,72 @@ function realityTrait(p){
 function realityChallengeScore(p,type="lider"){
  let score=Math.random()*100;
  const t=realityTrait(p);
- if(t==="competitivo")score+=type==="lider"?18:12;
- if(t==="estrategista")score+=type==="anjo"?16:8;
- if(t==="social")score+=6;
- if(p.human)score+=0; // player NÃO recebe vantagem escondida
- if(REALITY.lastWinner===p)score-=10; // reduz sequências artificiais
+
+ if(t==="competitivo")score+=type==="lider"?20:12;
+ if(t==="estrategista")score+=type==="anjo"?17:7;
+ if(t==="social")score+=5;
+
+ // O player não recebe nenhum bônus por ser controlado.
+ // NPCs recebem leve variabilidade de forma para a temporada parecer viva.
+ if(!p.human)score+=Math.random()*8;
+
+ // Fadiga de sequência: quem venceu recentemente tem menos chance de repetir.
+ if(REALITY.lastWinner===p)score-=24;
+
  return score
 }
+
 function realityPickChallengeWinner(type="lider"){
  const pool=realityAlive();
  if(!pool.length)return null;
- const ranked=pool.map(p=>[p,realityChallengeScore(p,type)]).sort((a,b)=>b[1]-a[1]);
- return ranked[0][0]
+
+ let ranked=pool
+   .map(p=>({p,score:realityChallengeScore(p,type)}))
+   .sort((a,b)=>b.score-a.score);
+
+ // Segurança de balanceamento:
+ // em uma temporada longa, evita o player monopolizar as provas por acaso.
+ if(ranked[0]?.p?.human && REALITY._playerWinsInLast3>=2){
+   const npc=ranked.find(x=>!x.p.human);
+   if(npc){
+     const old=ranked[0];
+     ranked[0]=npc;
+     const idx=ranked.indexOf(npc,1);
+     if(idx>=0)ranked[idx]=old
+   }
+ }
+
+ REALITY.lastChallengeRanking=ranked.map(x=>({name:x.p.name,score:Math.round(x.score)}));
+ return ranked[0].p
+}
+
+
+function realityShowChallengeResult(type,winner){
+ const ranking=(REALITY.lastChallengeRanking||[]).slice(0,4);
+ const podium=ranking.map((x,i)=>`${i+1}º ${x.name} — ${x.score} pts`).join("\n");
+ addFeed(`🏁 Resultado da Prova do ${type}: ${winner.name} venceu.`);
+ if(typeof toast==="function")toast(`🏆 ${winner.name} venceu o ${type}!`);
+ if(!winner.human && typeof modal==="function"){
+   modal(`🏆 ${winner.name.toUpperCase()} VENCEU!`,
+     `Prova do ${type}\n\n${podium}\n\n${winner.name} conquistou a vitória sem qualquer vantagem do player.`,
+     ["CONTINUAR"],closeModal)
+ }
 }
 function realitySetLeader(p){
- REALITY.leader=p;REALITY.immune.add(realityPersonKey(p));REALITY.lastWinner=p;
+ REALITY.leader=p;
+ REALITY._recentWinners=REALITY._recentWinners||[];
+ REALITY._recentWinners.unshift({name:p.name,human:!!p.human});
+ REALITY._recentWinners=REALITY._recentWinners.slice(0,3);
+ REALITY._playerWinsInLast3=REALITY._recentWinners.filter(x=>x.human).length;REALITY.immune.add(realityPersonKey(p));REALITY.lastWinner=p;
  realityRemember(p,"Venceu a Prova do Líder e ganhou imunidade.");
- realityHistory(`${p.name} venceu a Prova do Líder e está imune.`);
+ realityHistory(`🏆 ${p.name} venceu a Prova do Líder e está imune.`);
+ realityShowChallengeResult("Líder",p);
+ if(typeof livingReactToWinner==='function')livingReactToWinner(p,'a Prova do Líder');
  REALITY.partyPending=true
 }
 function realitySetAngel(p){
  REALITY.angel=p;REALITY.lastWinner=p;
+ realityShowChallengeResult("Anjo",p);
  const options=realityAlive().filter(x=>x!==p && !REALITY.immune.has(realityPersonKey(x)))
    .sort((a,b)=>realityRel(p,b)-realityRel(p,a));
  const target=options[0];
@@ -1286,6 +1352,8 @@ function realitySetAngel(p){
    realityRemember(p,`Imunizei ${target.name} com o Anjo.`);
    realityHistory(`${p.name} venceu o Anjo e imunizou ${target.name}.`)
  }else realityHistory(`${p.name} venceu a Prova do Anjo.`)
+
+ if(typeof livingReactToWinner==='function')livingReactToWinner(p,'a Prova do Anjo');
 }
 
 function realityVoteChoice(voter){
@@ -1459,5 +1527,215 @@ setTimeout(()=>{
        setTimeout(()=>realityNewCycle(),3500)
      }
    },300)
+ })
+},0);
+
+
+// ============================================================
+// V1.6 — LIVING HOUSE
+// ============================================================
+const LIVING={
+ moods:new Map(),
+ thoughts:new Map(),
+ chats:[],
+ actions:new Map(),
+ lastDramaAt:0
+};
+
+function livingMood(p){
+ const k=realityPersonKey(p);
+ if(!LIVING.moods.has(k))LIVING.moods.set(k,"🙂");
+ return LIVING.moods.get(k)
+}
+function livingSetMood(p,mood,reason=""){
+ LIVING.moods.set(realityPersonKey(p),mood);
+ if(reason)realityRemember(p,reason)
+}
+function livingThought(p,text){
+ LIVING.thoughts.set(realityPersonKey(p),{text,until:performance.now()+6500})
+}
+function livingRecentThought(p){
+ const x=LIVING.thoughts.get(realityPersonKey(p));
+ if(!x||performance.now()>x.until)return "";
+ return x.text
+}
+function livingActionFor(p){
+ return LIVING.actions.get(realityPersonKey(p))||p.activity||"observando"
+}
+function livingSetAction(p,action,seconds=8){
+ LIVING.actions.set(realityPersonKey(p),action);
+ setTimeout(()=>{
+   if(LIVING.actions.get(realityPersonKey(p))===action)LIVING.actions.delete(realityPersonKey(p))
+ },seconds*1000)
+}
+
+function livingDialogueBetween(a,b){
+ const rel=realityRel(a,b);
+ const memA=REALITY.memories.get(realityPersonKey(a))||[];
+ let lines;
+
+ if(rel>45){
+  lines=[
+   `${a.name}: "Se eu ganhar o Anjo, penso em você."`,
+   `${a.name}: "Acho que a gente precisa continuar junto."`,
+   `${a.name}: "Você é uma das poucas pessoas em quem eu confio."`
+  ]
+ }else if(rel<-25){
+  lines=[
+   `${a.name}: "Tem coisa no seu jogo que não está batendo."`,
+   `${a.name}: "Eu sei que você está falando meu nome."`,
+   `${a.name}: "Não tenta me fazer de bobo, ${b.name}."`
+  ]
+ }else{
+  lines=[
+   `${a.name}: "Em quem você acha que a casa está votando?"`,
+   `${a.name}: "Você ouviu alguma coisa sobre o próximo paredão?"`,
+   `${a.name}: "Quero entender melhor seu jogo."`
+  ]
+ }
+ if(memA.length&&Math.random()<.35)lines.push(`${a.name}: "E ainda estou pensando nisso: ${memA[0]}"`);
+ return pick(lines)||`${a.name}: "Precisamos conversar."`
+}
+
+function livingStartChat(a,b){
+ if(!a||!b||a===b||a.eliminated||b.eliminated)return;
+ livingSetAction(a,`conversando com ${b.name}`,7);
+ livingSetAction(b,`conversando com ${a.name}`,7);
+
+ const text=livingDialogueBetween(a,b);
+ showNpcBubble(a,text.replace(`${a.name}: `,""));
+ setTimeout(()=>showNpcBubble(b,realityRel(a,b)>20?"Também acho.":"Vou pensar nisso."),1700);
+
+ if(realityRel(a,b)>20)realityChangeRel(a,b,2);
+ else if(realityRel(a,b)<-20)realityChangeRel(a,b,-3);
+
+ LIVING.chats.unshift({a:a.name,b:b.name,text});
+ if(LIVING.chats.length>30)LIVING.chats.pop()
+}
+
+function livingRandomAction(p){
+ if(!p||p.human||p.eliminated)return;
+ const room=roomAt(p.x,p.y);
+ const choices={
+  "COZINHA":["fazendo um lanche","lavando um copo","mexendo na geladeira","conversando na cozinha"],
+  "SALA":["assistindo os outros","descansando no sofá","observando alianças"],
+  "QUARTO":["arrumando a cama","conversando no quarto","pensando no jogo"],
+  "PÁTIO / PISCINA":["descansando perto da piscina","tomando um ar","conversando no deck"],
+  "SALA VERDE":["falando de estratégia","procurando aliados","fofocando"],
+  "FESTA":["dançando","curtindo a música","conversando na pista"],
+  "CONFESSIONÁRIO":["dando depoimento"]
+ };
+ const action=pick(choices[room]||["passeando pela casa","observando os outros"]);
+ livingSetAction(p,action,randInt(5,11));
+
+ const thoughts=[
+  `Preciso falar com ${pick(realityAlive().filter(x=>x!==p))?.name||"alguém"}.`,
+  "Não posso virar alvo.",
+  "Quero muito ganhar uma prova.",
+  "Será que estou em perigo?",
+  "Preciso descobrir os votos.",
+  "Essa casa está estranha hoje."
+ ];
+ if(Math.random()<.55)livingThought(p,pick(thoughts)||"Estou pensando no jogo.")
+}
+
+function randInt(a,b){return Math.floor(Math.random()*(b-a+1))+a}
+
+function livingDrama(){
+ const pool=realityNPCs();
+ if(pool.length<2)return;
+ const a=pick(pool), b=pick(pool.filter(x=>x!==a));
+ if(!a||!b)return;
+
+ const rel=realityRel(a,b);
+ if(rel<-18 || Math.random()<.22){
+   realityChangeRel(a,b,-8);
+   livingSetMood(a,"😡",`Discutiu com ${b.name}.`);
+   livingSetMood(b,"😠",`Teve uma discussão com ${a.name}.`);
+   livingSetAction(a,`discutindo com ${b.name}`,9);
+   livingSetAction(b,`discutindo com ${a.name}`,9);
+   addFeed(`🔥 TRETA: ${a.name} e ${b.name} começaram a discutir.`);
+   showNpcBubble(a,`Eu não gostei do que você fez, ${b.name}.`);
+   setTimeout(()=>showNpcBubble(b,"Então fala na minha cara!"),1500);
+ }else{
+   livingStartChat(a,b)
+ }
+}
+
+function livingReactToWinner(winner,type){
+ realityAlive().forEach(p=>{
+   if(p===winner)return;
+   const rel=realityRel(p,winner);
+   if(rel>35){
+     livingSetMood(p,"🥳",`${winner.name} venceu ${type}.`);
+     livingThought(p,`${winner.name} ganhar foi bom para mim.`)
+   }else if(rel<-20){
+     livingSetMood(p,"😒",`${winner.name} venceu ${type}.`);
+     livingThought(p,`${winner.name} ficou ainda mais forte.`)
+   }else{
+     livingSetMood(p,"😐");
+     livingThought(p,`${winner.name} pode virar ameaça.`)
+   }
+ })
+ livingSetMood(winner,"👑",`Venceu ${type}.`)
+}
+
+function livingProfile(p){
+ if(!p)return;
+ const others=realityAlive().filter(x=>x!==p);
+ const ally=[...others].sort((a,b)=>realityRel(p,b)-realityRel(p,a))[0];
+ const rival=[...others].sort((a,b)=>realityRel(p,a)-realityRel(p,b))[0];
+ const memories=(REALITY.memories.get(realityPersonKey(p))||[]).slice(0,3);
+ const text=[
+  `Humor: ${livingMood(p)}`,
+  `Personalidade: ${realityTrait(p)}`,
+  `Atividade: ${livingActionFor(p)}`,
+  ally?`Mais próximo: ${ally.name}`:"",
+  rival?`Maior tensão: ${rival.name}`:"",
+  `Vitórias: ${p.wins||0}`,
+  memories.length?`\nÚltimos acontecimentos:\n• ${memories.join("\n• ")}`:""
+ ].filter(Boolean).join("\n");
+ modal(`👤 ${p.name}`,text,["FECHAR"],closeModal)
+}
+
+function livingTick(dt){
+ LIVING._clock=(LIVING._clock||0)+dt;
+ LIVING._actionClock=(LIVING._actionClock||0)+dt;
+
+ if(LIVING._actionClock>7){
+   LIVING._actionClock=0;
+   const npcs=realityNPCs();
+   if(npcs.length){
+     livingRandomAction(pick(npcs));
+     if(Math.random()<.45){
+       const a=pick(npcs),b=pick(npcs.filter(x=>x!==a));
+       if(a&&b&&Math.hypot(a.x-b.x,a.y-b.y)<180)livingStartChat(a,b)
+     }
+   }
+ }
+
+ if(LIVING._clock>16){
+   LIVING._clock=0;
+   if(Math.random()<.48)livingDrama()
+ }
+}
+
+
+function livingFindPersonAt(x,y){
+ let best=null,d=28;
+ for(const p of people.filter(p=>!p.eliminated)){
+  const q=Math.hypot(p.x-x,p.y-y);
+  if(q<d){d=q;best=p}
+ }
+ return best
+}
+setTimeout(()=>{
+ const cv=document.querySelector("#canvas");
+ if(cv)cv.addEventListener("dblclick",ev=>{
+   if(!gameStarted)return;
+   const r=cv.getBoundingClientRect();
+   const x=(ev.clientX-r.left)*(cv.width/r.width),y=(ev.clientY-r.top)*(cv.height/r.height);
+   const p=livingFindPersonAt(x,y);
+   if(p)livingProfile(p)
  })
 },0);

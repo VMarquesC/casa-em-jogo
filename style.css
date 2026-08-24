@@ -65,3 +65,38 @@ button:active{transform:scale(.97)}
  border:1px solid rgba(255,255,255,.18);
 }
 #speaker{font-weight:900;letter-spacing:.3px}
+
+
+/* ===== V1.6 LIVING HOUSE ===== */
+#players .playerRow,#players .player-card{
+ position:relative;
+ overflow:hidden;
+}
+#players .playerRow::before,#players .player-card::before{
+ content:"";
+ position:absolute;
+ inset:0 auto 0 0;
+ width:3px;
+ background:linear-gradient(180deg,rgba(168,85,247,.9),rgba(34,211,238,.8));
+ opacity:.8;
+}
+#feed{
+ background:linear-gradient(180deg,rgba(7,11,20,.72),rgba(12,17,30,.88));
+}
+#event{
+ font-weight:800;
+ letter-spacing:.2px;
+}
+#start{
+ position:relative;
+ overflow:hidden;
+}
+#start::after{
+ content:"";
+ position:absolute;
+ width:280px;height:280px;
+ border-radius:50%;
+ right:-80px;top:-70px;
+ background:radial-gradient(circle,rgba(34,211,238,.16),transparent 70%);
+ pointer-events:none;
+}
