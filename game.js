@@ -374,7 +374,7 @@ document.querySelector("#gossipBtn").onclick=showGossip;
 document.querySelector("#relBtn").onclick=showRelationships;
 document.querySelector("#collisionBtn").onclick=toggleCollisionDebug;
 document.querySelector("#npcDebugBtn").onclick=showNpcDebug;
-document.querySelector("#powersBtn").onclick=showPowers;document.querySelector("#missionsBtn").onclick=showMission;document.querySelector("#profileBtn").onclick=showProfile;document.querySelector("#howBtn").onclick=showHowTo;document.querySelector("#modalClose").onclick=()=>{if(phase==="social")closeModal()};
+document.querySelector("#powersBtn").onclick=showPowers;document.querySelector("#missionsBtn").onclick=showMission;document.querySelector("#profileBtn").onclick=showProfile;document.querySelector("#howBtn").onclick=showHowTo;document.querySelector("#modalClose").onclick=()=>{if(typeof closeModal==="function")closeModal()};
 addEventListener("keydown",e=>{
  const k=e.key.toLowerCase();
  if(k===" " && dialogueOpen){e.preventDefault();advanceDialogue();return}
@@ -520,7 +520,7 @@ function npcSocialTick(p,dt){
 }
 function makePerson(name,x,y,c,human=false){
  const key=human?"theo":name.toLowerCase();
- return{name,x,y,c,human,alive:true,tx:x,ty:y,mood:pick(moods),wins:0,zone:roomAt(x,y),change:0,
+ return{name,x,y,c,human,alive:true,eliminated:false,tx:x,ty:y,mood:pick(moods),wins:0,zone:roomAt(x,y),change:0,
  facing:"down",walkFrame:0,sprite:key,path:[],pathIndex:0,repathCd:0,
  behaviorCd:rnd(3,8),activity:"observando",socialTarget:null,stuck:0,lastX:x,lastY:y,avoidCd:0,waitCd:0}
 }
@@ -568,7 +568,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.10.2");
+ toast("CASA EM JOGO • V1.10.4");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -1195,7 +1195,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.10.2] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.10.4] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
@@ -1275,20 +1275,32 @@ function modal(title,text,choices=[],cb=null){
  const modalEl=document.querySelector("#modal");
  if(!modalEl)return;
  modalEl.classList.remove("hidden");
- const titleEl=document.querySelector("#modalTitle"),textEl=document.querySelector("#modalText"),q=document.querySelector("#choices");
+
+ const titleEl=document.querySelector("#modalTitle");
+ const textEl=document.querySelector("#modalText");
+ const q=document.querySelector("#choices");
+
  if(titleEl)titleEl.textContent=title||"";
  if(textEl)textEl.textContent=text||"";
  if(!q)return;
+
  q.innerHTML="";
  const list=Array.isArray(choices)?choices:[];
+ let used=false;
+
  list.forEach(c=>{
-   let b=document.createElement("button");
+   const b=document.createElement("button");
    b.className="choice";
    b.textContent=String(c);
-   b.onclick=()=>{if(typeof cb==="function")cb(c)};
+   b.onclick=()=>{
+     if(used)return;
+     used=true;
+     if(typeof cb==="function")cb(c)
+   };
    q.appendChild(b)
  })
 }
+
 function closeModal(){
  const modalEl=document.querySelector("#modal");
  if(modalEl)modalEl.classList.add("hidden");
@@ -1455,6 +1467,7 @@ function showtimeEliminate(p,percentages){
  if(!p||!p.alive)return showtimeStartNextDay();
 
  p.alive=false;
+ p.eliminated=true;
  livingSetMood?.(p,"😢");
  realityHistory(`🚪 ${p.name} foi eliminado com ${percentages[0].pct.toFixed(1)}%.`);
  eventLog(`🚪 ${p.name} deixou a Casa em Jogo.`,12);
@@ -1932,14 +1945,19 @@ function gpDailyReset(){
 }
 
 function realityPersonKey(p){return p?.name||"Participante"}
-function realityAlive(){return people.filter(p=>p.alive!==false&&!p.eliminated)}
+function realityAlive(){
+ return people.filter(p=>p && p.alive!==false && !p.eliminated)
+}
+
 function realityNPCs(){return realityAlive().filter(p=>!p.human)}
 
 function realityRel(a,b){
+ if(!a||!b)return 0;
  const k=[realityPersonKey(a),realityPersonKey(b)].sort().join("::");
  if(!REALITY.relationships.has(k))REALITY.relationships.set(k,Math.floor(Math.random()*31)-5);
  return REALITY.relationships.get(k)
 }
+
 function realityChangeRel(a,b,n){
  const k=[realityPersonKey(a),realityPersonKey(b)].sort().join("::");
  REALITY.relationships.set(k,Math.max(-100,Math.min(100,realityRel(a,b)+n)))
@@ -1984,26 +2002,20 @@ function realityPickChallengeWinner(type="lider"){
  const pool=realityAlive();
  if(!pool.length)return null;
 
- let ranked=pool
-   .map(p=>({p,score:realityChallengeScore(p,type)}))
-   .sort((a,b)=>b.score-a.score);
+ let ranked=pool.map(p=>({p,score:realityChallengeScore(p,type)})).sort((a,b)=>b.score-a.score);
 
- // Segurança de balanceamento:
- // em uma temporada longa, evita o player monopolizar as provas por acaso.
  if(ranked[0]?.p?.human && REALITY._playerWinsInLast3>=2){
-   const npc=ranked.find(x=>!x.p.human);
-   if(npc){
-     const old=ranked[0];
-     ranked[0]=npc;
-     const idx=ranked.indexOf(npc,1);
-     if(idx>=0)ranked[idx]=old
+   const npcIndex=ranked.findIndex(x=>!x.p.human);
+   if(npcIndex>0){
+     const temp=ranked[0];
+     ranked[0]=ranked[npcIndex];
+     ranked[npcIndex]=temp
    }
  }
 
  REALITY.lastChallengeRanking=ranked.map(x=>({name:x.p.name,score:Math.round(x.score)}));
- return ranked[0].p
+ return ranked[0]?.p||null
 }
-
 
 function realityShowChallengeResult(type,winner){
  const ranking=(REALITY.lastChallengeRanking||[]).slice(0,5);
@@ -2237,6 +2249,7 @@ function realityNewCycle(){
 }
 
 function realityTick(dt){
+ if(!gameStarted||(typeof MAZE!=="undefined"&&MAZE.active))return;
  REALITY._clock=(REALITY._clock||0)+dt;
  if(REALITY._clock>32){
    REALITY._clock=0;
@@ -2590,6 +2603,7 @@ function gpNpcStrategyTick(){
 }
 
 function livingTick(dt){
+ if(!gameStarted||phase==="maze"||(typeof MAZE!=="undefined"&&MAZE.active))return;
  LIVING._clock=(LIVING._clock||0)+dt;
  LIVING._actionClock=(LIVING._actionClock||0)+dt;
  LIVING._eventClock=(LIVING._eventClock||0)+dt;
@@ -2751,7 +2765,7 @@ function mazeProgressOf(p){
 }
 
 function mazeLeaderboard(){
- const alive=people.filter(p=>p.alive);
+ const alive=people.filter(p=>p && p.alive!==false && !p.eliminated);
  const list=alive.map(p=>{
    const finished=MAZE.finishOrder.indexOf(p);
    return {
@@ -2923,7 +2937,7 @@ function mazeEnter(){
  REALITY.phase="Prova do Líder — Labirinto";
  WEEKFLOW.phase="challengeMaze";
 
- const alive=people.filter(p=>p.alive);
+ const alive=people.filter(p=>p&&p.alive!==false&&!p.eliminated);
  const pts=mazeStartPoints();
  MAZE.peopleState=alive.map(p=>({p,x:p.x,y:p.y,path:p.path,targetRoom:p.targetRoom}));
 
@@ -2941,7 +2955,7 @@ function mazeEnter(){
 function mazeLeave(){
  const saved=new Map((MAZE.peopleState||[]).map(s=>[s.p,s]));
 
- people.filter(p=>p.alive).forEach(p=>{
+ people.filter(p=>p&&p.alive!==false&&!p.eliminated).forEach(p=>{
    const s=saved.get(p);
    if(s){
      p.x=s.x;
@@ -2979,7 +2993,7 @@ function mazeLeave(){
 }
 
 function mazeFinish(winner){
- if(MAZE.finished)return;
+ if(!MAZE.active||MAZE.finished)return;
  MAZE.finished=true;
  MAZE.winner=winner||null;
 
@@ -3109,17 +3123,23 @@ function mazeUpdate(dt){
 
 
 function mazeDrawCollisionDebug(){
- if(!debugCollision||!MAZE.maskReady||!MAZE.maskCanvas)return;
+ if(!(typeof collisionDebug!=="undefined" && collisionDebug))return;
+ if(!MAZE.maskReady||!MAZE.maskCanvas||!me)return;
+
  ctx.save();
- ctx.globalAlpha=.26;
+ ctx.globalAlpha=.24;
  ctx.drawImage(MAZE.maskCanvas,0,0,C.width,C.height);
+
  ctx.globalAlpha=.95;
  ctx.strokeStyle="#fff";
+ ctx.lineWidth=1;
  ctx.beginPath();
  ctx.arc(me.x,me.y,4,0,Math.PI*2);
  ctx.stroke();
+
  ctx.restore()
 }
+
 function mazeDraw(){
  if(!MAZE.active)return false;
 
