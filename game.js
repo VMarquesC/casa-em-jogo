@@ -11,168 +11,319 @@ const rnd=(a,b)=>Math.random()*(b-a)+a, pick=a=>a[Math.floor(Math.random()*a.len
 let trait="Social",playerColor=COLORS[0],people=[],me,round=1,time=70,phase="social",feed=[],leader="",immune="",eventName="";
 let stats={energy:100,social:50,rep:50,coins:500},alliances=[],gossips=[],near=null,last=performance.now(),eventCd=18,actionCd=0,challenge=0;
 let musicOn=true,audioCtx=null,musicTimer=null,doorNear=null;
-let dialogueOpen=false,typingTimer=null,currentDialogue=null,relationship={};
+let dialogueOpen=false,typingTimer=null,currentDialogue=null,relationship={},roomActionCd=0;
+let powers=[],activeMission=null,missionCompleted=false,doubleVoteArmed=false,secretImmune=false,seasonSaved=false;
+const PROFILE_KEY="casaEmJogo_profile_v1";let profile={seasons:0,wins:0,coins:0};
+const MISSIONS=[{id:"talk3",text:"Converse com 3 participantes diferentes",goal:3,type:"talk",reward:120},{id:"kitchen",text:"Use a cozinha 2 vezes",goal:2,type:"room_COZINHA",reward:90},{id:"alliance",text:"Forme uma aliança",goal:1,type:"alliance",reward:150},{id:"gossip",text:"Espalhe 2 fofocas",goal:2,type:"gossip",reward:110},{id:"patio",text:"Relaxe no pátio 2 vezes",goal:2,type:"room_PÁTIO / PISCINA",reward:80}];let missionProgress={};
 
-// Áreas nas quais o centro do personagem pode existir.
-// O cenário é a própria imagem enviada pelo usuário.
-const WALK=[
- {name:"DESPENSA",x:54,y:49,w:246,h:142},
- {name:"COZINHA",x:55,y:244,w:245,h:356},
- {name:"SALA",x:365,y:145,w:244,h:415},
- {name:"HALL",x:342,y:468,w:278,h:112},
- {name:"PÁTIO / PISCINA",x:36,y:628,w:555,h:129},
- {name:"QUARTO",x:656,y:49,w:310,h:244},
- {name:"LOUNGE",x:653,y:488,w:120,h:252},
- {name:"CONFESSIONÁRIO",x:799,y:520,w:169,h:218}
+// V0.8 — colisão redesenhada a partir do cenário 1024×765 enviado pelo usuário.
+// Em vez de um retângulo gigante por cômodo, cada piso é composto por várias áreas.
+// Isso evita atravessar o fundo preto, paredes e móveis grandes.
+
+const FLOOR_RECTS=[
+ // DESPENSA / CAFÉ superior esquerdo
+ {room:"DESPENSA",x:51,y:31,w:258,h:170},
+ // COZINHA principal
+ {room:"COZINHA",x:51,y:230,w:258,h:386},
+ // SALA / HALL central
+ {room:"SALA",x:352,y:125,w:270,h:347},
+ {room:"HALL",x:351,y:472,w:272,h:145},
+ // passagem central inferior
+ {room:"HALL",x:313,y:583,w:348,h:55},
+ // PÁTIO
+ {room:"PÁTIO / PISCINA",x:27,y:619,w:575,h:146},
+ // QUARTO superior direito
+ {room:"QUARTO",x:646,y:25,w:332,h:298},
+ // corredor abaixo do quarto
+ {room:"CORREDOR",x:622,y:325,w:236,h:142},
+ // LOUNGE
+ {room:"LOUNGE",x:643,y:487,w:133,h:254},
+ // CONFESSIONÁRIO
+ {room:"CONFESSIONÁRIO",x:786,y:491,w:201,h:250}
 ];
 
-// Colisões aproximadas sobre móveis/objetos da imagem.
-const BLOCK=[
- // despensa
- [55,55,62,99],[122,58,111,62],[239,48,56,104],
- // cozinha paredes/móveis
- [55,245,238,76],[55,321,46,276],[245,321,54,278],
- [132,385,88,176],[105,410,27,135],[220,408,24,137],
- // sala
- [365,145,30,292],[573,145,33,287],[404,164,151,104],
- [447,306,123,131],[450,444,121,35],[365,485,80,70],[548,480,60,77],
- // hall / portas e estantes
- [356,485,83,72],[542,484,66,73],[444,534,108,30],
- // quarto beds/furniture
- [658,50,300,61],[658,113,40,167],[920,113,41,169],
- [705,117,66,82],[820,118,70,80],[710,213,66,62],[819,211,73,65],
+// Obstáculos desenhados em cima dos elementos visíveis.
+// playerRadius é aplicado de forma circular, então não precisa "engordar" os retângulos.
+const SOLIDS=[
+ // bordas / bancadas da despensa
+ [53,31,255,22],[53,31,18,171],[290,31,18,171],
+ [72,68,49,95],[123,62,109,63],[236,52,48,109],
+ [75,164,190,31],
+
+ // cozinha: bancadas e eletros nas paredes
+ [53,232,255,28],[53,232,21,383],[286,232,22,383],
+ [75,262,191,65],[249,264,38,96],
+ [55,421,37,167],[263,405,26,183],
+ // ilha + bancos/cadeiras
+ [137,387,86,150],[116,404,18,132],[226,402,18,134],
+ [154,537,25,40],[204,537,25,40],
+ // itens inferiores / plantas
+ [253,562,33,47],[47,590,70,25],
+
+ // sala: paredes laterais e objetos
+ [353,125,269,23],[353,125,22,342],[601,125,21,342],
+  [445,312,126,128], // sofá
+ [451,338,78,59], // mesa de centro
+ [444,445,131,39], // estante/console
+ [354,482,78,77],[540,482,70,77], // estantes do hall
+  [453,551,91,64], // porta dupla/parede central inferior
+ [320,588,47,49],[575,588,44,49], // paredes pequenas
+
+ // pátio e piscina
+ [27,619,87,22],[27,619,20,146],
+ [75,633,73,104], // guarda-sol/cadeira
+ [112,687,482,78], // água da piscina: não caminhável
+ [367,630,70,66],[506,630,75,70], // espreguiçadeiras
+ [590,619,13,146],
+
+ // quarto: paredes e camas/malas/móveis
+ [646,25,332,23],[646,25,19,298],[959,25,19,298],
+ [667,47,76,115],[755,46,62,73],[828,47,75,113],[910,47,48,113],
+ [676,198,88,91],[805,196,84,95],[899,197,59,94],
+ [739,185,90,94], // malas no centro
+ [664,291,132,31],[829,291,129,31],
+
+ // corredor sob quarto: paredes verdes / vãos
+ [622,326,80,42],[699,327,92,42],[835,327,24,140],
+ [787,324,47,143],
+
  // lounge
- [655,493,58,77],[654,612,51,95],[741,490,31,151],
+ [643,488,132,21],[643,488,18,253],[758,488,18,253],
+ [659,510,59,68],[658,610,55,101],[724,518,35,178],
+ [658,718,117,23],
+
  // confessionário
- [799,521,167,58],[800,579,42,150],[923,580,43,148],[865,613,39,101],
- // piscina e mobília do pátio
- [118,704,470,55],[43,642,91,88],[368,635,63,58],[515,637,62,61]
+ [786,491,201,22],[786,491,18,250],[969,491,18,250],
+ [804,514,164,55],[804,568,40,154],[929,569,40,153],
+ [863,600,43,117],[804,718,165,23]
 ];
 
-
-// refinamentos V0.6: mesas, estantes, poltronas e bordas adicionais
-BLOCK.push(
- [153,501,78,54], [128,367,98,24], [394,363,40,75], [571,359,29,75],
- [430,269,137,31], [412,439,166,18], [670,350,108,81],
- [630,323,156,33], [632,438,95,36], [780,332,167,126],
- [629,565,49,115], [708,560,58,145], [330,616,62,73],
- [446,614,78,60], [88,675,65,46], [530,681,48,45]
-);
-
-const DOORS=[
- {name:"Porta da Despensa",a:[278,181],b:[278,258],to:[270,342]},
- {name:"Porta da Cozinha",a:[280,333],b:[315,333],to:[379,357]},
- {name:"Porta do Quarto",a:[789,278],b:[789,316],to:[597,357]},
- {name:"Entrada do Lounge",a:[663,543],b:[643,543],to:[598,535]},
- {name:"Entrada do Confessionário",a:[805,645],b:[782,645],to:[742,646]}
+// Portais só existem onde o próprio desenho tem cômodos fisicamente separados.
+// Bots NÃO usam teleportes aleatórios.
+const PORTALS=[
+ {name:"Despensa",roomA:"DESPENSA",ax:264,ay:151,roomB:"COZINHA",bx:112,by:358},
+ {name:"Saída da Cozinha",roomA:"COZINHA",ax:190,ay:598,roomB:"PÁTIO / PISCINA",bx:190,by:651},
+ {name:"Quarto",roomA:"QUARTO",ax:808,ay:302,roomB:"CORREDOR",bx:735,by:390},
+ {name:"Lounge",roomA:"LOUNGE",ax:676,ay:595,roomB:"HALL",bx:596,by:562},
+ {name:"Confessionário",roomA:"CONFESSIONÁRIO",ax:916,ay:690,roomB:"LOUNGE",bx:735,by:690}
 ];
 
-function insideWalk(x,y){return WALK.some(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h)}
+const PLAYER_RADIUS=10;
+let collisionDebug=false;
+
+function rawFloorPoint(x,y){
+ return FLOOR_RECTS.some(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h)
+}
+function pointInFloors(x,y,r=PLAYER_RADIUS){
+ // Testa o círculo contra a UNIÃO dos pisos. Isso mantém passagens entre
+ // retângulos vizinhos sem permitir que o personagem pise no fundo preto.
+ const samples=[[0,0],[r,0],[-r,0],[0,r],[0,-r],[r*.7,r*.7],[-r*.7,r*.7],[r*.7,-r*.7],[-r*.7,-r*.7]];
+ return samples.every(([dx,dy])=>rawFloorPoint(x+dx,y+dy))
+}
+function floorRoom(x,y){
+ const r=FLOOR_RECTS.find(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h);
+ return r?r.room:"FORA DA CASA";
+}
 function circleRect(cx,cy,r,bx,by,bw,bh){
  const nx=Math.max(bx,Math.min(cx,bx+bw)),ny=Math.max(by,Math.min(cy,by+bh));
  return (cx-nx)*(cx-nx)+(cy-ny)*(cy-ny)<r*r
 }
-function blocked(x,y,rad=10,who=null){
- if(BLOCK.some(([bx,by,bw,bh])=>circleRect(x,y,rad,bx,by,bw,bh)))return true;
+function staticBlocked(x,y,r=PLAYER_RADIUS){
+ return SOLIDS.some(([bx,by,bw,bh])=>circleRect(x,y,r,bx,by,bw,bh))
+}
+function actorBlocked(x,y,r,who){
  for(const p of people){
-   if(!p.alive||p===who)continue;
-   if(dist(x,y,p.x,p.y)<rad+11)return true;
+  if(!p.alive||p===who)continue;
+  if(Math.hypot(x-p.x,y-p.y)<r+9)return true
  }
  return false
 }
-function canMove(x,y,who=null){return insideWalk(x,y)&&!blocked(x,y,11,who)}
-function roomAt(x,y){let r=WALK.find(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h);return r?r.name:"CORREDOR"}
-function dist(a,b,c,d){return Math.hypot(a-c,b-d)}
+function canMove(x,y,who=null){
+ return pointInFloors(x,y)&&!staticBlocked(x,y,PLAYER_RADIUS)&&!actorBlocked(x,y,PLAYER_RADIUS,who)
+}
+function roomAt(x,y){return floorRoom(x,y)}
+function safePoint(roomName,ignoreActor=null){
+ const candidates=FLOOR_RECTS.filter(r=>!roomName||r.room===roomName);
+ if(!candidates.length)return [405,286];
+ for(let n=0;n<400;n++){
+  const r=pick(candidates);
+  const x=rnd(r.x+18,r.x+r.w-18),y=rnd(r.y+18,r.y+r.h-18);
+  if(pointInFloors(x,y)&&!staticBlocked(x,y,PLAYER_RADIUS)&&!actorBlocked(x,y,PLAYER_RADIUS,ignoreActor))return [x,y]
+ }
+ // deterministic fallbacks for every room, all chosen on visible floor.
+ const fallback={
+  "DESPENSA":[175,150],
+  "COZINHA":[112,356],
+  "SALA":[405,286],
+  "HALL":[590,575],
+  "PÁTIO / PISCINA":[270,665],
+  "QUARTO":[809,176],
+  "CORREDOR":[734,400],
+  "LOUNGE":[734,590],
+  "CONFESSIONÁRIO":[918,690]
+ };
+ return fallback[roomName]||[405,286]
+}
+function nearestPortal(p){
+ let best=null,bd=36;
+ for(const portal of PORTALS){
+  for(const side of ["A","B"]){
+   const px=portal[side.toLowerCase()+"x"],py=portal[side.toLowerCase()+"y"];
+   const d=Math.hypot(p.x-px,p.y-py);
+   if(d<bd){bd=d;best={portal,side}}
+  }
+ }
+ return best
+}
+function useNearestPortal(p){
+ const found=nearestPortal(p);if(!found)return false;
+ const {portal,side}=found;
+ const targetRoom=side==="A"?portal.roomB:portal.roomA;
+ let tx=side==="A"?portal.bx:portal.ax,ty=side==="A"?portal.by:portal.ay;
+ if(staticBlocked(tx,ty)||!pointInFloors(tx,ty)){
+   const safe=safePoint(targetRoom);tx=safe[0];ty=safe[1];
+ }
+ p.x=tx;p.y=ty;p.tx=tx;p.ty=ty;p.zone=roomAt(tx,ty);
+ toast("🚪 "+portal.name);return true
+}
 
-document.querySelectorAll(".trait").forEach(b=>b.onclick=()=>{document.querySelectorAll(".trait").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");trait=b.dataset.trait});
+function loadProfile(){try{const s=JSON.parse(localStorage.getItem(PROFILE_KEY)||"null");if(s&&typeof s==="object")profile={...profile,...s}}catch(e){}document.querySelector("#profileWins").textContent=profile.wins;document.querySelector("#profileSeasons").textContent=profile.seasons;document.querySelector("#profileCoins").textContent=profile.coins}
+function saveProfile(){try{localStorage.setItem(PROFILE_KEY,JSON.stringify(profile))}catch(e){}}
+function updateStartPreview(){const n=document.querySelector("#name").value.trim()||"Jogador";document.querySelector("#previewName").textContent=n;document.querySelector("#previewTrait").textContent=({Social:"🤝 Social",Competitivo:"🏆 Competitivo",Provocador:"🔥 Provocador",Observador:"👁 Observador"})[trait]||trait}
+loadProfile();
+document.querySelectorAll(".trait").forEach(b=>b.onclick=()=>{document.querySelectorAll(".trait").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");trait=b.dataset.trait;updateStartPreview()});document.querySelector("#name").addEventListener("input",updateStartPreview);
 COLORS.slice(0,7).forEach((c,i)=>{let b=document.createElement("button");b.className="color"+(i===0?" selected":"");b.style.background=c;b.onclick=()=>{document.querySelectorAll(".color").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");playerColor=c};document.querySelector("#colors").appendChild(b)});
 document.querySelector("#play").onclick=start;
 document.querySelector("#musicBtn").onclick=toggleMusic;
 document.querySelector("#gossipBtn").onclick=showGossip;
 document.querySelector("#relBtn").onclick=showRelationships;
+document.querySelector("#collisionBtn").onclick=toggleCollisionDebug;
+document.querySelector("#powersBtn").onclick=showPowers;document.querySelector("#missionsBtn").onclick=showMission;document.querySelector("#profileBtn").onclick=showProfile;document.querySelector("#howBtn").onclick=showHowTo;document.querySelector("#modalClose").onclick=()=>{if(phase==="social")closeModal()};
 addEventListener("keydown",e=>{
  const k=e.key.toLowerCase();
  if(k===" " && dialogueOpen){e.preventDefault();advanceDialogue();return}
+ if(k==="h"){toggleCollisionDebug();return}
  keys[k]=true;
- if(dialogueOpen)return;
+ if(uiBlocking())return;
  if(k==="e"&&phase==="social")interact();
  if(k==="f"&&phase==="social")action()
 });
 addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+addEventListener("blur",()=>{Object.keys(keys).forEach(k=>keys[k]=false)});
 
-function safePoint(zoneName){
- const r=pick(WALK.filter(z=>!zoneName||z.name===zoneName));
- for(let i=0;i<80;i++){let x=rnd(r.x+18,r.x+r.w-18),y=rnd(r.y+18,r.y+r.h-18);if(canMove(x,y))return [x,y]}
- return [480,520]
-}
 function makePerson(name,x,y,c,human=false){
  const key=human?"theo":name.toLowerCase();
  return{name,x,y,c,human,alive:true,tx:x,ty:y,mood:pick(moods),wins:0,zone:roomAt(x,y),change:0,facing:"down",walkFrame:0,sprite:key}
 }
 function start(){
  const name=document.querySelector("#name").value.trim()||"Jogador";
- people=[makePerson(name,487,510,playerColor,true)];
- BOT_NAMES.forEach((n,i)=>{let p=safePoint(pick(["SALA","COZINHA","HALL","PÁTIO / PISCINA"]));people.push(makePerson(n,p[0],p[1],COLORS[i+1]))});
+ people=[makePerson(name,405,286,playerColor,true)];stats={energy:100,social:50,rep:50,coins:500};if(trait==="Social")stats.social=62;if(trait==="Competitivo")stats.energy=112;if(trait==="Provocador")stats.rep=44;if(trait==="Observador")stats.rep=57;
+ BOT_NAMES.forEach((n,i)=>{
+ const zones=["SALA","COZINHA","HALL","PÁTIO / PISCINA","QUARTO","LOUNGE"];
+ const p=safePoint(zones[i%zones.length]);
+ people.push(makePerson(n,p[0],p[1],COLORS[i+1]))
+});
  me=people[0];
- people.filter(p=>p!==me).forEach(p=>relationship[p.name]={trust:50,affinity:50,suspicion:10});
+ people.filter(p=>p!==me).forEach(p=>relationship[p.name]={trust:50,affinity:50,suspicion:10});powers=[];doubleVoteArmed=false;secretImmune=false;seasonSaved=false;missionProgress={talk:new Set()};activeMission=pick(MISSIONS);missionCompleted=false;
  document.querySelector("#start").classList.remove("active");document.querySelector("#game").classList.add("active");
  addFeed(`🎬 ${name} entrou na casa como ${trait}.`);
  addFeed("🏠 O cenário da casa agora é a imagem enviada por você.");
  addFeed("🚧 Paredes, móveis, camas, piscina e outros objetos possuem colisão.");
- toast("CASA EM JOGO • V0.5");startMusic();requestAnimationFrame(loop)
+ const testIssues=runSelfTest();if(testIssues.length)addFeed("⚠️ Autoteste encontrou: "+testIssues.join(", "));else addFeed("✅ Autoteste de mapa e portais concluído.");addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
+ toast("CASA EM JOGO • V1.1");startMusic();requestAnimationFrame(loop)
 }
 
 function loop(now){let dt=Math.min(.05,(now-last)/1000);last=now;if(phase==="social")update(dt);draw();ui();requestAnimationFrame(loop)}
+function missionStep(type,value=1,key=null){if(!activeMission||missionCompleted)return;if(activeMission.type==="talk"&&type==="talk"){missionProgress.talk=missionProgress.talk||new Set();if(key)missionProgress.talk.add(key);missionProgress.talkCount=missionProgress.talk.size}else if(activeMission.type===type)missionProgress[type]=(missionProgress[type]||0)+value;const cur=activeMission.type==="talk"?(missionProgress.talkCount||0):(missionProgress[activeMission.type]||0);if(cur>=activeMission.goal){missionCompleted=true;stats.coins+=activeMission.reward;addFeed(`✅ Missão concluída: ${activeMission.text}. +${activeMission.reward} moedas`);toast("🎯 MISSÃO CONCLUÍDA!")}}
+function missionCurrent(){if(!activeMission)return 0;return activeMission.type==="talk"?(missionProgress.talkCount||0):(missionProgress[activeMission.type]||0)}
+function grantPower(name){if(!name)return;powers.push(name);addFeed(`⚡ Você recebeu o poder: ${name}.`);toast("⚡ NOVO PODER")}
+function showPowers(){if(!powers.length)return modal("⚡ PODERES","Você ainda não possui poderes.",["FECHAR"],closeModal);const opts=powers.map(p=>`USAR • ${p}`);modal("⚡ SEUS PODERES","Escolha um poder para ativar.",opts,label=>{const idx=opts.indexOf(label);if(idx<0)return;const p=powers[idx];powers.splice(idx,1);activatePower(p);closeModal()})}
+function activatePower(p){if(p==="Voto Duplo"){doubleVoteArmed=true;addFeed("🗳️ Seu próximo voto valerá 2.")}else if(p==="Escudo Secreto"){secretImmune=true;addFeed("🛡️ Você ativou um Escudo Secreto.")}else if(p==="Espião"){const a=alivePeople().filter(x=>x!==me),t=pick(a);if(t)addFeed(`👁️ Poder Espião: ${t.name} está agindo de forma suspeita.`)}else if(p==="Moedas"){stats.coins+=180;addFeed("🪙 Você resgatou 180 moedas.")}}
+function showMission(){if(!activeMission)return modal("🎯 MISSÃO","Nenhuma missão ativa.",["FECHAR"],closeModal);const c=Math.min(activeMission.goal,missionCurrent());modal("🎯 MISSÃO SECRETA",`${activeMission.text}\n\nProgresso: ${c}/${activeMission.goal}\nRecompensa: ${activeMission.reward} moedas\nStatus: ${missionCompleted?"CONCLUÍDA ✅":"EM ANDAMENTO"}`,["FECHAR"],closeModal)}
+function showProfile(){modal("🏅 PERFIL",`Temporadas concluídas: ${profile.seasons}\nVitórias: ${profile.wins}\nCarteira permanente: ${profile.coins} moedas\n\nTemporada atual\nPerfil: ${trait}\nProvas vencidas: ${me?.wins||0}\nAlianças: ${alliances.length}\nFofocas: ${gossips.length}`,["FECHAR"],closeModal)}
+function showHowTo(){modal("🎮 COMO JOGAR","WASD/setas: andar\nSHIFT: correr\nE: conversar\nF: interagir com cômodo/porta\nESPAÇO: completar diálogo\nH: mostrar colisões\n\nGanhe provas, forme alianças, use poderes e sobreviva à Zona de Risco.",["ENTENDI"],closeModal)}
+function modalOpen(){return !document.querySelector("#modal").classList.contains("hidden")}
+function uiBlocking(){return dialogueOpen||modalOpen()}
 function update(dt){
- actionCd=Math.max(0,actionCd-dt);stats.energy=Math.max(0,stats.energy-dt*.09);eventCd-=dt;
- if(me.alive && !dialogueOpen){
-   let dx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),dy=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0),l=Math.hypot(dx,dy)||1,speed=stats.energy>10?145:95;
+ actionCd=Math.max(0,actionCd-dt);roomActionCd=Math.max(0,roomActionCd-dt);stats.energy=Math.max(0,stats.energy-dt*.09);eventCd-=dt;
+ if(me.alive && !uiBlocking()){
+   let dx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);
+   let dy=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);
+   const moving=dx||dy;
+   const sprint=(keys.shift && stats.energy>8);
+   const speed=sprint?190:(stats.energy>10?135:88);
+   if(sprint&&moving)stats.energy=Math.max(0,stats.energy-dt*4.2);
+   let l=Math.hypot(dx,dy)||1;dx/=l;dy/=l;
    if(Math.abs(dx)>Math.abs(dy))me.facing=dx>0?"right":"left";else if(dy!==0)me.facing=dy>0?"down":"up";
-   if(dx||dy)me.walkFrame=(me.walkFrame+dt*7)%4;
-   let nx=me.x+dx/l*speed*dt,ny=me.y+dy/l*speed*dt;
-   if(canMove(nx,me.y,me))me.x=nx;if(canMove(me.x,ny,me))me.y=ny;
+   if(moving)me.walkFrame=(me.walkFrame+dt*(sprint?9:6))%4;
+   // eixo separado = personagem desliza pela parede em vez de travar inteiro
+   const nx=me.x+dx*speed*dt;
+   if(canMove(nx,me.y,me))me.x=nx;
+   const ny=me.y+dy*speed*dt;
+   if(canMove(me.x,ny,me))me.y=ny;
  }
- updateBots(dt);near=findNear();doorNear=findDoor();
- if(eventCd<=0){randomEvent();eventCd=rnd(19,31)}
- time-=dt;if(time<=0)startChallenge()
+ updateBots(dt);near=findNear();doorNear=nearestPortal(me);
+ if(eventCd<=0 && !uiBlocking() && phase==="social"){randomEvent();eventCd=rnd(19,31)}
+ if(!uiBlocking()){time-=dt;if(time<=0)startChallenge()}
 }
 function updateBots(dt){
  people.filter(p=>!p.human&&p.alive).forEach(p=>{
-   p.change-=dt;
-   if(p.change<=0||dist(p.x,p.y,p.tx,p.ty)<8){
-     let point=safePoint(p.zone);p.tx=point[0];p.ty=point[1];p.change=rnd(3,7);
-     if(Math.random()<.08){let z=pick(["SALA","COZINHA","HALL","PÁTIO / PISCINA"]);let sp=safePoint(z);p.x=sp[0];p.y=sp[1];p.zone=z}
-     p.mood=pick(moods)
+  p.change-=dt;
+  const currentRoom=roomAt(p.x,p.y);
+  if(p.change<=0||Math.hypot(p.tx-p.x,p.ty-p.y)<7||staticBlocked(p.tx,p.ty)){
+   // Patrulha SOMENTE no mesmo cômodo. Sem teleporte aleatório.
+   let sp=null;
+   for(let tries=0;tries<20;tries++){
+     const candidate=safePoint(currentRoom,p);
+     if(Math.hypot(candidate[0]-p.x,candidate[1]-p.y)<150){sp=candidate;break}
    }
-   let d=dist(p.x,p.y,p.tx,p.ty)||1;
-   let vx=(p.tx-p.x)/d,vy=(p.ty-p.y)/d;
-   if(Math.abs(vx)>Math.abs(vy))p.facing=vx>0?"right":"left";else p.facing=vy>0?"down":"up";
-   p.walkFrame=(p.walkFrame+dt*5)%4;
-   let nx=p.x+vx*43*dt,ny=p.y+vy*43*dt;
-   if(canMove(nx,p.y,p))p.x=nx;else p.tx=p.x;
-   if(canMove(p.x,ny,p))p.y=ny;else p.ty=p.y;
+   if(!sp)sp=safePoint(currentRoom,p);
+   p.tx=sp[0];p.ty=sp[1];p.change=rnd(2.5,6.5);p.mood=pick(moods)
+  }
+  const d=Math.hypot(p.tx-p.x,p.ty-p.y)||1;
+  const vx=(p.tx-p.x)/d,vy=(p.ty-p.y)/d;
+  if(Math.abs(vx)>Math.abs(vy))p.facing=vx>0?"right":"left";else p.facing=vy>0?"down":"up";
+  p.walkFrame=(p.walkFrame+dt*4.5)%4;
+  const nx=p.x+vx*37*dt;
+  let moved=false;
+  if(canMove(nx,p.y,p)){p.x=nx;moved=true}
+  const ny=p.y+vy*37*dt;
+  if(canMove(p.x,ny,p)){p.y=ny;moved=true}
+  if(!moved){
+    p.stuck=(p.stuck||0)+dt;
+    if(p.stuck>.35){const sp=safePoint(currentRoom,p);p.tx=sp[0];p.ty=sp[1];p.change=rnd(1.5,3.5);p.stuck=0}
+  }else p.stuck=0
+
+  // falas espontâneas ocasionais, sem alterar posição
+  p.speakCd=(p.speakCd??rnd(7,16))-dt;
+  if(p.speakCd<=0 && Math.hypot(p.x-me.x,p.y-me.y)<150){
+    showNpcBubble(p,pick(["Hmm...","Preciso falar com alguém.","Essa votação vai pegar fogo.","Não confio em todo mundo.","Quero ganhar a próxima prova."]));
+    p.speakCd=rnd(12,24)
+  }
  })
 }
 function findNear(){let best=null,bd=55;people.filter(p=>p!==me&&p.alive).forEach(p=>{let d=dist(me.x,me.y,p.x,p.y);if(d<bd){bd=d;best=p}});return best}
-function findDoor(){let best=null,bd=38;DOORS.forEach(d=>{let dd=dist(me.x,me.y,d.a[0],d.a[1]);if(dd<bd){bd=dd;best=d}});return best}
 
 function interact(){if(dialogueOpen)return;if(actionCd>0)return;actionCd=.5;if(near)return openChat(near);if(roomAt(me.x,me.y)==="CONFESSIONÁRIO")return confession();bubble("Ninguém perto. Chegue perto de um participante.")}
 function action(){
  if(dialogueOpen)return;
  if(actionCd>0)return;actionCd=.5;
- if(doorNear){me.x=doorNear.to[0];me.y=doorNear.to[1];toast("🚪 "+doorNear.name);return}
+ if(doorNear){if(useNearestPortal(me))return}
  const r=roomAt(me.x,me.y);
- if(r==="COZINHA"){stats.energy=Math.min(100,stats.energy+20);stats.coins+=15;addFeed("🍳 Você preparou comida. +20 energia • +15 moedas");bubble("+20 energia")}
+ if(r!=="CONFESSIONÁRIO"&&roomActionCd>0){bubble("Espere um pouco para usar outra ação do cômodo.");return}
+ roomActionCd=6;
+ if(r==="COZINHA"){missionStep("room_COZINHA");stats.energy=Math.min(115,stats.energy+20);stats.coins+=15;addFeed("🍳 Você preparou comida. +20 energia • +15 moedas");bubble("+20 energia")}
  else if(r==="DESPENSA"){stats.coins+=30;addFeed("📦 Você ajudou a organizar a despensa. +30 moedas");bubble("+30 moedas")}
  else if(r==="SALA"){stats.social=Math.min(100,stats.social+6);addFeed("🛋️ Você socializou na sala. +6 Social");bubble("+6 Social")}
- else if(r==="QUARTO"){stats.energy=Math.min(100,stats.energy+28);addFeed("🛏️ Você descansou no quarto. +28 energia");bubble("+28 energia")}
+ else if(r==="QUARTO"){stats.energy=Math.min(115,stats.energy+28);addFeed("🛏️ Você descansou no quarto. +28 energia");bubble("+28 energia")}
  else if(r==="LOUNGE"){stats.rep=Math.min(100,stats.rep+5);addFeed("🎲 Você participou de uma dinâmica no lounge. +5 reputação");bubble("+5 reputação")}
  else if(r==="CONFESSIONÁRIO")confession();
- else if(r==="PÁTIO / PISCINA"){stats.social=Math.min(100,stats.social+4);stats.energy=Math.min(100,stats.energy+7);addFeed("🏖️ Você relaxou no pátio. +4 Social • +7 energia");bubble("Relaxando...")}
+ else if(r==="PÁTIO / PISCINA"){missionStep("room_PÁTIO / PISCINA");stats.social=Math.min(100,stats.social+4);stats.energy=Math.min(115,stats.energy+7);addFeed("🏖️ Você relaxou no pátio. +4 Social • +7 energia");bubble("Relaxando...")}
  else bubble("Nada para fazer aqui agora.")
 }
 
 function openChat(p){
+ missionStep("talk",1,p.name);
  const rel=relationship[p.name]||{trust:50,affinity:50,suspicion:10};
  const intro = pick([
    `Ei, ${me.name}. ${pick(sayings)}`,
@@ -197,7 +348,7 @@ function npcVoteTalk(p){
 }
 function npcAlliance(p){
  if(!alliances.includes(p.name)){
-   alliances.push(p.name);changeRel(p.name,12,10,-2);
+   alliances.push(p.name);changeRel(p.name,12,10,-2);missionStep("alliance");
    addFeed(`🤝 ${me.name} e ${p.name} firmaram uma aliança secreta.`);
    showDialogue(p.name,p.c,"Fechado. A gente se protege por enquanto. Mas se você me trair, eu vou descobrir.",[
      ["Combinado",closeDialogue]
@@ -209,7 +360,7 @@ function npcAlliance(p){
 function npcGossip(p){
  const target=pick(people.filter(q=>q.alive&&q!==p&&q!==me));
  const gossip=`Ouvi dizer que ${target.name} está tentando montar votos contra alguém do seu grupo.`;
- gossips.unshift(gossip);changeRel(p.name,1,0,2);stats.social=Math.min(100,stats.social+2);
+ gossips.unshift(gossip);missionStep("gossip");changeRel(p.name,1,0,2);stats.social=Math.min(100,stats.social+2);
  addFeed(`🗣️ ${me.name} contou uma fofoca para ${p.name}.`);
  showDialogue(p.name,p.c,"Sério? Isso muda algumas coisas... vou observar antes de acreditar.",[
    ["É verdade",()=>{changeRel(p.name,0,0,1);closeDialogue()}],
@@ -237,21 +388,25 @@ function changeRel(name,trust=0,aff=0,susp=0){
  relationship[name].suspicion=Math.max(0,Math.min(100,relationship[name].suspicion+susp));
 }
 function showDialogue(name,color,text,choices=[]){
- dialogueOpen=true;currentDialogue={name,color,text,choices};
+ dialogueOpen=true;currentDialogue={name,color,text,choices,typed:false};
  const box=document.querySelector("#dialogue");
  box.classList.remove("hidden");
  document.querySelector("#speaker").textContent=name;
- document.querySelector("#portrait").style.setProperty("--pc",color||"#57c7ff");
+ document.querySelector("#portrait").style.setProperty("--pc",color||"#57c7ff");const key=(name===me?.name?"theo":name.toLowerCase());document.querySelector("#portraitImg").src=`assets/portraits/${SPRITES[key]?key:"theo"}.png`;
  document.querySelector("#dialogueChoices").innerHTML="";
  document.querySelector("#dialogueHint").style.display=choices.length?"none":"block";
- typeDialogue(text,()=>{
-   if(choices.length){
-     const q=document.querySelector("#dialogueChoices");
-     choices.forEach(([label,fn])=>{
-       const b=document.createElement("button");b.textContent=label;b.onclick=fn;q.appendChild(b)
-     })
-   }
- });
+ typeDialogue(text,()=>finishDialogueTyping());
+}
+function finishDialogueTyping(){
+ if(!currentDialogue)return;
+ currentDialogue.typed=true;
+ const q=document.querySelector("#dialogueChoices");
+ q.innerHTML="";
+ if(currentDialogue.choices.length){
+  currentDialogue.choices.forEach(([label,fn])=>{
+   const b=document.createElement("button");b.textContent=label;b.onclick=fn;q.appendChild(b)
+  })
+ }
 }
 function typeDialogue(text,done){
  if(typingTimer)clearInterval(typingTimer);
@@ -265,6 +420,7 @@ function advanceDialogue(){
  if(typingTimer){
    clearInterval(typingTimer);typingTimer=null;
    document.querySelector("#dialogueText").textContent=currentDialogue?.text||"";
+   finishDialogueTyping();
    return;
  }
  if(document.querySelector("#dialogueChoices").children.length===0)closeDialogue()
@@ -277,7 +433,7 @@ function closeDialogue(){
 }
 function showRelationships(){
  const lines=Object.entries(relationship).map(([n,r])=>`${n}: confiança ${r.trust} • afinidade ${r.affinity} • suspeita ${r.suspicion}`);
- modal("🤝 RELAÇÕES",lines.join("\\n\\n")||"Sem relações registradas.",["FECHAR"],closeModal)
+ modal("🤝 RELAÇÕES",lines.join("\n\n")||"Sem relações registradas.",["FECHAR"],closeModal)
 }
 
 
@@ -303,12 +459,15 @@ function randomEvent(){
  ["👀 VOTOS REVELADOS","Alguns votos poderão ser expostos depois da cerimônia."],
  ["💎 PODER SECRETO","Existe uma vantagem escondida na casa."],
  ["🍿 CINEMA DA CASA","Momentos comprometores da temporada foram exibidos."],
- ["🔥 TRETA","Dois participantes começaram uma discussão no lounge."]
+ ["🔥 TRETA","Dois participantes começaram uma discussão no lounge."],
+ ["🚨 SINCERÃO","Alguns participantes precisarão apontar aliados e rivais."],
+ ["🎯 MIRA","O Chefe deverá revelar publicamente três possíveis alvos."],
+ ["🧊 CASTIGO","Um participante recebeu uma tarefa incômoda pela casa."]
  ];
- let e=pick(events);eventName=e[0];addFeed(`${e[0]} ${e[1]}`);toast(e[0]);if(Math.random()<.45)gossips.unshift(e[1]);setTimeout(()=>eventName="",5500)
+ let e=pick(events);eventName=e[0];addFeed(`${e[0]} ${e[1]}`);toast(e[0]);if(e[0].includes("TELEFONE"))grantPower(pick(["Voto Duplo","Escudo Secreto","Espião","Moedas"]));if(e[0].includes("PODER SECRETO"))grantPower(pick(["Voto Duplo","Espião","Moedas"]));if(Math.random()<.45)gossips.unshift(e[1]);setTimeout(()=>eventName="",5500)
 }
 
-function startChallenge(){phase="challenge";challenge=(challenge+1)%5;if(challenge===0)return reaction();if(challenge===1)return memory();if(challenge===2)return resistance();if(challenge===3)return colors();return boxes()}
+function startChallenge(){if(phase!=="social")return;phase="challenge";challenge=(challenge+1)%5;if(challenge===0)return reaction();if(challenge===1)return memory();if(challenge===2)return resistance();if(challenge===3)return colors();return boxes()}
 function reaction(){let target=Math.floor(rnd(450,900));modal("⚡ PROVA DO REFLEXO",`Clique aproximadamente ${target} ms depois do sinal.`,["COMEÇAR"],()=>{let q=document.querySelector("#choices");q.innerHTML="";document.querySelector("#modalText").textContent="Prepare-se...";setTimeout(()=>{let b=document.createElement("button");b.className="choice";b.textContent="🟢 AGORA!";q.appendChild(b);let s=performance.now();b.onclick=()=>resolve(Math.abs(performance.now()-s-target),"Reflexo")},rnd(700,1600))})}
 function memory(){let seq=Array.from({length:5},()=>pick(["⭐","❤️","🌙","💎","🍀"]));modal("🧠 PROVA DA MEMÓRIA","Memorize:\n\n"+seq.join("  "),["MEMORIZEI"],()=>{let correct=seq.join("");let opts=[correct,[...seq].reverse().join(""),[...seq].sort(()=>Math.random()-.5).join("")];opts=[...new Set(opts)].sort(()=>Math.random()-.5);modal("🧠 QUAL ERA?", "Escolha a sequência correta.",opts,c=>resolve(c===correct?rnd(20,80):rnd(380,650),"Memória"))})}
 function resistance(){let clicks=0,start=performance.now();modal("💪 PROVA DE RESISTÊNCIA","Clique 20 vezes o mais rápido possível.",["COMEÇAR"],()=>{let q=document.querySelector("#choices");q.innerHTML="";let b=document.createElement("button");b.className="choice";b.textContent="CLIQUE! 0/20";q.appendChild(b);start=performance.now();b.onclick=()=>{clicks++;b.textContent=`CLIQUE! ${clicks}/20`;if(clicks>=20)resolve((performance.now()-start)/10,"Resistência")}})}
@@ -318,24 +477,78 @@ function resolve(score,type){
  closeModal();let alive=alivePeople();let scores=alive.filter(p=>p!==me).map(p=>({p,score:rnd(45,450)}));scores.push({p:me,score});scores.sort((a,b)=>a.score-b.score);leader=scores[0].p.name;scores[0].p.wins++;stats.coins+=leader===me.name?150:25;
  addFeed(`🏆 ${leader} venceu a Prova de ${type}.`);toast(`👑 ${leader.toUpperCase()} É O CHEFE`);selectImmunity()
 }
-function selectImmunity(){let pool=alivePeople().filter(p=>p.name!==leader);immune=pick(pool).name;addFeed(`🛡️ ${immune} recebeu imunidade.`);phase="vote";let opts=alivePeople().filter(p=>p!==me&&p.name!==leader&&p.name!==immune);modal("⚠️ FORMAÇÃO DA ZONA DE RISCO","Vote em quem você quer colocar em risco.",opts.map(p=>p.name),vote)}
+function selectImmunity(){
+ const alive=alivePeople();
+ if(alive.length<=3)return final();
+ const pool=alive.filter(p=>p.name!==leader);
+ const protectedPlayer=pick(pool);
+ immune=protectedPlayer?protectedPlayer.name:"";
+ if(immune)addFeed(`🛡️ ${immune} recebeu imunidade.`);
+ phase="vote";
+ const opts=alive.filter(p=>p!==me&&p.name!==leader&&p.name!==immune);
+ if(!opts.length){
+   addFeed("⚠️ Não há alvos válidos para votação nesta rodada.");
+   return finishRoundSafely()
+ }
+ modal("⚠️ FORMAÇÃO DA ZONA DE RISCO","Vote em quem você quer colocar em risco.",opts.map(p=>p.name),vote)
+}
 function vote(target){
- const tally={};alivePeople().forEach(p=>tally[p.name]=0);tally[target]++;
- alivePeople().filter(p=>p!==me).forEach(v=>{let o=alivePeople().filter(p=>p!==v&&p.name!==leader&&p.name!==immune);if(o.length)tally[pick(o).name]++});
- let valid=Object.entries(tally).filter(([n])=>n!==leader&&n!==immune).sort((a,b)=>b[1]-a[1]);let risk=valid.slice(0,3).map(e=>e[0]);
+ const alive=alivePeople();
+ if(!alive.some(p=>p.name===target)){addFeed("⚠️ Voto inválido ignorado.");return finishRoundSafely()}
+ const tally={};alive.forEach(p=>tally[p.name]=0);
+ tally[target]=(tally[target]||0)+(doubleVoteArmed?2:1);if(doubleVoteArmed){addFeed("⚡ Seu Voto Duplo foi usado.");doubleVoteArmed=false}
+ alive.filter(p=>p!==me).forEach(v=>{const o=alive.filter(p=>p!==v&&p.name!==leader&&p.name!==immune&&!(secretImmune&&p===me));if(o.length){let chosen=null;const rel=relationship[v.name];if(o.includes(me)&&rel&&Math.random()<Math.max(.06,rel.suspicion/130))chosen=me;if(!chosen)chosen=pick(o);if(chosen)tally[chosen.name]=(tally[chosen.name]||0)+1}});if(secretImmune&&me.name!==leader&&me.name!==immune){addFeed("🛡️ Seu Escudo Secreto protegeu você nesta rodada.");secretImmune=false}
+ // Apenas pessoas que REALMENTE receberam voto entram pelo voto da casa.
+ const valid=Object.entries(tally)
+   .filter(([n,v])=>n!==leader&&n!==immune&&v>0)
+   .sort((a,b)=>b[1]-a[1]);
+ if(!valid.length){addFeed("⚠️ A votação terminou sem alvo válido.");closeModal();return finishRoundSafely()}
+ const risk=valid.slice(0,Math.min(3,valid.length)).map(e=>e[0]);
  addFeed("⚠️ Zona de Risco: "+risk.join(", "));closeModal();
- if(risk.length>=3)return bateVolta(risk,tally);eliminate(risk[0],tally)
+ if(risk.length>=3)return bateVolta(risk,tally);
+ return eliminate(risk[0],tally)
+}
+function finishRoundSafely(){
+ closeModal();
+ if(alivePeople().length<=3)return final();
+ round++;time=70;phase="social";leader="";immune="";eventName="";
+ addFeed(`🌅 Começou a rodada ${round}.`)
 }
 function bateVolta(risk,tally){
- let saved=pick(risk);modal("🔁 BATE-VOLTA",`${risk.join(" • ")} disputaram a última chance.\n\n🟢 ${saved} escapou da Zona de Risco!`,["CONTINUAR"],()=>{closeModal();let remaining=risk.filter(n=>n!==saved);let out=pick(remaining);eliminate(out,tally)})
+ const saved=pick(risk);
+ if(!saved)return finishRoundSafely();
+ modal("🔁 BATE-VOLTA",`${risk.join(" • ")} disputaram a última chance.\n\n🟢 ${saved} escapou da Zona de Risco!`,["CONTINUAR"],()=>{
+   closeModal();
+   const remaining=risk.filter(n=>n!==saved);
+   const out=pick(remaining);
+   if(!out)return finishRoundSafely();
+   eliminate(out,tally)
+ })
 }
-function eliminate(outName,tally){
- let p=people.find(p=>p.name===outName);p.alive=false;addFeed("🗳️ "+Object.entries(tally).filter(e=>e[1]>0).map(e=>`${e[0]} ${e[1]}`).join(" • "));addFeed(`🚪 ${outName} foi eliminado.`);toast(`${outName.toUpperCase()} FOI ELIMINADO`);
+function eliminate(outName,tally={}){
+ const p=people.find(p=>p.name===outName&&p.alive);
+ if(!p){addFeed("⚠️ Tentativa de eliminação inválida foi ignorada.");return finishRoundSafely()}
+ p.alive=false;
+ addFeed("🗳️ "+Object.entries(tally).filter(e=>e[1]>0).map(e=>`${e[0]} ${e[1]}`).join(" • "));
+ addFeed(`🚪 ${outName} foi eliminado.`);
+ toast(`${outName.toUpperCase()} FOI ELIMINADO`);
  if(!me.alive){phase="dead";return modal("VOCÊ FOI ELIMINADO",`Sua jornada terminou na rodada ${round}.`,["NOVA TEMPORADA"],()=>location.reload())}
- if(alivePeople().length<=3)return final();round++;time=70;phase="social";leader="";immune="";addFeed(`🌅 Começou a rodada ${round}.`)
+ if(alivePeople().length<=3)return final();
+ round++;time=70;phase="social";leader="";immune="";eventName="";
+ addFeed(`🌅 Começou a rodada ${round}.`)
 }
-function final(){phase="final";let a=alivePeople(),winner=pick(a);if(a.includes(me)){let chance=Math.min(.88,.32+(stats.social+stats.rep)/360+me.wins*.03);if(Math.random()<chance)winner=me}modal("🏆 FINAL DA TEMPORADA",`Vencedor: ${winner.name}\n\nFinalistas: ${a.map(p=>p.name).join(", ")}\nSeu perfil: ${trait}\nProvas: ${me.wins}\nAlianças: ${alliances.length?alliances.join(", "):"nenhuma"}\nMoedas: ${Math.round(stats.coins)}`,["NOVA TEMPORADA"],()=>location.reload())}
-
+function final(){
+ if(phase==="final"&&document.querySelector("#modalTitle").textContent==="🏆 FINAL DA TEMPORADA")return;
+ phase="final";closeDialogue();
+ const a=alivePeople();
+ if(!a.length)return modal("🏆 FINAL DA TEMPORADA","A temporada terminou sem participantes ativos.",["NOVA TEMPORADA"],()=>location.reload());
+ let winner=pick(a);
+ if(a.includes(me)){
+   const chance=Math.min(.88,.32+(stats.social+stats.rep)/360+me.wins*.03);
+   if(Math.random()<chance)winner=me
+ }
+ if(!seasonSaved){profile.seasons+=1;profile.coins+=Math.round(stats.coins);if(winner===me)profile.wins+=1;saveProfile();seasonSaved=true}modal("🏆 FINAL DA TEMPORADA",`Vencedor: ${winner.name}\n\nFinalistas: ${a.map(p=>p.name).join(", ")}\nSeu perfil: ${trait}\nProvas: ${me.wins}\nAlianças: ${alliances.length?alliances.join(", "):"nenhuma"}\nMoedas: ${Math.round(stats.coins)}`,["NOVA TEMPORADA"],()=>location.reload())
+}
 function draw(){
  ctx.clearRect(0,0,C.width,C.height);
  if(map.complete)ctx.drawImage(map,0,0,1024,765);else{ctx.fillStyle="#050812";ctx.fillRect(0,0,1024,765)}
@@ -343,6 +556,7 @@ function draw(){
  people.filter(p=>p.alive).forEach(drawPerson);
  if(near){ctx.save();ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.setLineDash([4,4]);ctx.beginPath();ctx.arc(near.x,near.y,25,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle="#fff";ctx.font="bold 11px system-ui";ctx.textAlign="center";ctx.fillText("E • conversar",near.x,near.y-34);ctx.restore()}
  if(doorNear&&!near){ctx.save();ctx.fillStyle="#07101ddd";ctx.strokeStyle="#52d5ff";ctx.lineWidth=1;ctx.fillRect(me.x-63,me.y-47,126,22);ctx.strokeRect(me.x-63,me.y-47,126,22);ctx.fillStyle="#fff";ctx.font="bold 10px system-ui";ctx.textAlign="center";ctx.fillText("F • usar porta",me.x,me.y-32);ctx.restore()}
+ if(collisionDebug)drawCollisionDebug();
 }
 function drawPerson(p){
  ctx.save();
@@ -352,26 +566,65 @@ function drawPerson(p){
  const row=dirs[p.facing||"down"],frame=Math.floor(p.walkFrame||0)%4;
  if(im&&im.complete&&im.naturalWidth){
    // original source frame 24x32 rendered 1.25x for clearer pixel art
-   ctx.drawImage(im,frame*24,row*32,24,32,Math.round(p.x-15),Math.round(p.y-23),30,40);
+   ctx.drawImage(im,frame*32,row*48,32,48,Math.round(p.x-16),Math.round(p.y-35),32,48);
  }else{
    ctx.fillStyle=p.c;ctx.fillRect(p.x-8,p.y-5,16,20);ctx.beginPath();ctx.arc(p.x,p.y-12,8,0,Math.PI*2);ctx.fill()
  }
- ctx.font="bold 10px system-ui";ctx.textAlign="center";ctx.lineWidth=3;ctx.strokeStyle="#07101d";ctx.strokeText(p.name,p.x,p.y-29);ctx.fillStyle="#fff";ctx.fillText(p.name,p.x,p.y-29);
- if(p===me){ctx.strokeStyle="#57d9ff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,18,0,Math.PI*2);ctx.stroke()}
+ ctx.font="bold 10px system-ui";ctx.textAlign="center";ctx.lineWidth=3;ctx.strokeStyle="#07101d";ctx.strokeText(p.name,p.x,p.y-38);ctx.fillStyle="#fff";ctx.fillText(p.name,p.x,p.y-38);
+ if(p.name===leader){ctx.fillStyle="#ffd25f";ctx.font="bold 13px system-ui";ctx.fillText("♛",p.x,p.y-50)}if(p.name===immune){ctx.strokeStyle="#74e39a";ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y+1,15,0,Math.PI*2);ctx.stroke()}if(p===me){ctx.strokeStyle="#57d9ff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,18,0,Math.PI*2);ctx.stroke()}
  ctx.restore()
 }
-function ui(){
- document.querySelector("#energy").textContent=Math.round(stats.energy);document.querySelector("#social").textContent=Math.round(stats.social);document.querySelector("#rep").textContent=Math.round(stats.rep);document.querySelector("#coins").textContent=Math.round(stats.coins);
- document.querySelector("#roomBadge").textContent=roomAt(me?.x||480,me?.y||500);
- document.querySelector("#round").textContent=`RODADA ${round} • ${phase==="social"?"CONVIVÊNCIA":phase==="challenge"?"PROVA":"CERIMÔNIA"}`;
- document.querySelector("#timer").textContent=phase==="social"?`${String(Math.floor(Math.max(0,time)/60)).padStart(2,"0")}:${String(Math.ceil(Math.max(0,time)%60)).padStart(2,"0")}`:"EVENTO EM ANDAMENTO";
- document.querySelector("#event").textContent=eventName;
- document.querySelector("#players").innerHTML=people.map(p=>`<div class="person ${p.alive?"":"dead"}"><span class="dot" style="background:${p.c}"></span>${p.name}<span class="meta">${p.alive?p.mood:"eliminado"}</span></div>`).join("");
- document.querySelector("#feed").innerHTML=feed.map(f=>`<div class="eventline">${f}</div>`).join("")
+function toggleCollisionDebug(){
+ collisionDebug=!collisionDebug;
+ const b=document.querySelector("#collisionBtn");
+ b.classList.toggle("active",collisionDebug);
+ toast(collisionDebug?"🧱 COLISÕES VISÍVEIS":"🧱 COLISÕES OCULTAS")
 }
+function drawCollisionDebug(){
+ ctx.save();
+ ctx.globalAlpha=.25;ctx.fillStyle="#22c55e";
+ FLOOR_RECTS.forEach(r=>ctx.fillRect(r.x,r.y,r.w,r.h));
+ ctx.globalAlpha=.38;ctx.fillStyle="#ef4444";
+ SOLIDS.forEach(([x,y,w,h])=>ctx.fillRect(x,y,w,h));
+ ctx.globalAlpha=.9;ctx.fillStyle="#facc15";
+ PORTALS.forEach(p=>{ctx.beginPath();ctx.arc(p.ax,p.ay,5,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(p.bx,p.by,5,0,Math.PI*2);ctx.fill()});
+ ctx.restore()
+}
+function showNpcBubble(p,text){
+ const el=document.querySelector("#npcBubble");
+ // converte coordenada do canvas em posição aproximada da tela
+ const rect=C.getBoundingClientRect();
+ const sx=rect.left+(p.x/C.width)*rect.width;
+ const sy=rect.top+(p.y/C.height)*rect.height;
+ el.textContent=text;el.style.left=Math.min(window.innerWidth-250,sx+15)+"px";el.style.top=Math.max(20,sy-65)+"px";
+ el.classList.remove("hidden");
+ clearTimeout(el._hide);el._hide=setTimeout(()=>el.classList.add("hidden"),2200)
+}
+
+function runSelfTest(){
+ const issues=[];
+ const spawn=[405,286];
+ if(!pointInFloors(spawn[0],spawn[1])||staticBlocked(spawn[0],spawn[1]))issues.push("Spawn principal inválido");
+ for(const p of PORTALS){
+  for(const side of ["A","B"]){
+   const x=p[side.toLowerCase()+"x"],y=p[side.toLowerCase()+"y"];
+   if(!rawFloorPoint(x,y))issues.push(`Portal ${p.name} ${side} fora do piso`);
+   if(staticBlocked(x,y,6))issues.push(`Portal ${p.name} ${side} dentro de obstáculo`);
+  }
+ }
+ for(const room of [...new Set(FLOOR_RECTS.map(r=>r.room))]){
+   const p=safePoint(room);
+   if(!rawFloorPoint(p[0],p[1])||staticBlocked(p[0],p[1]))issues.push(`Sem ponto seguro em ${room}`)
+ }
+ if(typeof WALK!=="undefined")issues.push("Variável WALK antiga ainda existe");
+ console.log("[Casa em Jogo V1.1] autoteste:",issues.length?issues:"OK");
+ return issues
+}
+
+function ui(){if(!me)return;document.querySelector("#energy").textContent=Math.round(stats.energy);document.querySelector("#social").textContent=Math.round(stats.social);document.querySelector("#rep").textContent=Math.round(stats.rep);document.querySelector("#coins").textContent=Math.round(stats.coins);document.querySelector("#roomBadge").textContent=roomAt(me.x,me.y)+(collisionDebug?" • DEBUG":"");const mc=activeMission?Math.min(activeMission.goal,missionCurrent()):0;document.querySelector("#missionShort").textContent=activeMission?`${activeMission.text} ${mc}/${activeMission.goal}`:"Sem missão";document.querySelector("#round").textContent=`RODADA ${round} • ${phase==="social"?"CONVIVÊNCIA":phase==="challenge"?"PROVA":"CERIMÔNIA"}`;document.querySelector("#timer").textContent=phase==="social"?`${String(Math.floor(Math.max(0,time)/60)).padStart(2,"0")}:${String(Math.ceil(Math.max(0,time)%60)).padStart(2,"0")}`:"EVENTO";document.querySelector("#event").textContent=eventName||(phase==="social"?"Convivência livre":"Evento em andamento");const night=round%3===0;document.querySelector("#dayLabel").textContent=`DIA ${round} ${night?"🌙":"☀️"}`;document.querySelector("#dayOverlay").style.opacity=night?".23":"0";document.querySelector("#players").innerHTML=people.map(p=>{const rel=relationship[p.name],key=p.human?"theo":p.name.toLowerCase(),r=p===me?"Você":(rel?`🤝${rel.trust} 👁${rel.suspicion}`:"");return `<div class="person ${p.alive?"":"dead"}"><img src="assets/portraits/${key}.png"><div><span class="pname">${p.name}</span><span class="pmeta">${p.alive?p.mood:"eliminado"}</span></div><span class="relation-mini">${r}</span></div>`}).join("");document.querySelector("#feed").innerHTML=feed.map(f=>`<div class="eventline">${f}</div>`).join("")}
 function alivePeople(){return people.filter(p=>p.alive)}
 function addFeed(t){feed.unshift(t);feed=feed.slice(0,11)}
-function modal(title,text,choices,cb){document.querySelector("#modal").classList.remove("hidden");document.querySelector("#modalTitle").textContent=title;document.querySelector("#modalText").textContent=text;let q=document.querySelector("#choices");q.innerHTML="";choices.forEach(c=>{let b=document.createElement("button");b.className="choice";b.textContent=c;b.onclick=()=>cb(c);q.appendChild(b)})}
+function modal(title,text,choices,cb){document.querySelector("#modal").classList.remove("hidden");document.querySelector("#modalClose").style.display=(phase==="social"?"block":"none");document.querySelector("#modalTitle").textContent=title;document.querySelector("#modalText").textContent=text;let q=document.querySelector("#choices");q.innerHTML="";choices.forEach(c=>{let b=document.createElement("button");b.className="choice";b.textContent=c;b.onclick=()=>cb(c);q.appendChild(b)})}
 function closeModal(){document.querySelector("#modal").classList.add("hidden")}
 function bubble(t){toast(t)}
 function toast(t){let el=document.querySelector("#toast");el.textContent=t;el.classList.remove("hidden");setTimeout(()=>el.classList.add("hidden"),2200)}

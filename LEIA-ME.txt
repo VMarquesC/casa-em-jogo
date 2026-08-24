@@ -1,34 +1,45 @@
-CASA EM JOGO — V0.7
+CASA EM JOGO — V1.1
 
-NOVIDADES V0.7
-- Caixa de diálogo estilo RPG na parte inferior.
-- Nome e retrato visual do participante.
-- Texto aparece com efeito de digitação.
-- Escolhas de resposta dentro da própria caixa de diálogo.
-- Conversas agora alteram confiança, afinidade e suspeita.
-- Tela de Relações com cada participante.
-- Alianças, fofocas, promessa de proteção e provocações conectadas às relações.
-- Confessionário convertido para diálogo RPG.
-- Colisões circulares mais precisas contra retângulos.
-- Jogador não atravessa outros participantes.
-- Bots também não atravessam jogador/NPCs.
-- Mais objetos do cenário receberam colisão.
-- Direção visual do personagem (cima/baixo/esquerda/direita).
-- Pequena animação de caminhada.
-- Movimento bloqueado enquanto uma conversa está aberta.
-- Mantém o cenário enviado pelo usuário sem trocar a imagem.
+NOVIDADES
+• Tela inicial totalmente redesenhada usando o cenário como fundo.
+• 8 sprites refeitos em 32x48 por frame, 4 direções x 4 frames.
+• 8 retratos pixel art novos.
+• Retratos reais na caixa de diálogo e lista lateral.
+• Perfil permanente com temporadas, vitórias e moedas (localStorage).
+• Missões secretas com progresso e recompensa.
+• Inventário de poderes.
+• Voto Duplo, Escudo Secreto, Espião e prêmio de Moedas.
+• Telefone/Poder Secreto entregam poderes reais.
+• Relações influenciam votos dos bots.
+• Estilos iniciais alteram atributos.
+• Dia/noite.
+• Coroa visual no Chefe e anel no imune.
+• Painéis de Perfil, Missões, Poderes e Como Jogar.
 
-NOTA
-Como o cenário continua sendo uma imagem única (não um tilemap), as colisões são
-mapeadas manualmente sobre os elementos visuais. Esta V0.7 adiciona mais regiões
-e usa colisão circular, então a sensação fica bem mais sólida.
+REVISÃO DE BUGS 1
+• node --check: OK.
+• IDs usados no JS comparados ao HTML: OK.
+• Nenhuma função duplicada.
+• safePoint única.
+• Nenhuma referência antiga a WALK.
+• Limites de energia uniformizados.
 
-NOVIDADES V0.7
-- 8 sprites pixel art originais incluídos como PNG transparente.
-- Theo, Luna, Caio, Bia, Noah, Maya, Davi e Nina têm visual próprio.
-- Cada spritesheet possui 4 direções: baixo, esquerda, direita e cima.
-- Cada direção possui 4 frames.
-- NPCs agora mudam de direção visual ao caminhar.
-- Personagem principal usa animação baseada no movimento.
-- Renderização pixel-perfect com suavização desativada.
-- Sprites ficam em assets/sprites/ e podem ser editados/substituídos depois.
+MELHORIA APÓS QA
+• Adicionado seasonSaved para impedir progresso permanente contado duas vezes.
+• Escudo Secreto não é desperdiçado quando o jogador já é Chefe/Imune.
+
+REVISÃO DE BUGS 2
+• node --check executado novamente: OK.
+• IDs verificados novamente: OK.
+• Funções duplicadas verificadas novamente: OK.
+• 8 sprites confirmados em 128x192.
+• 8 retratos confirmados.
+• Sistemas de perfil, missão e poderes presentes.
+
+CONTROLES
+WASD/setas: andar
+SHIFT: correr
+E: conversar
+F: interagir
+H: colisões
+ESPAÇO: completar diálogo

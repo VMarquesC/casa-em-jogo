@@ -1,79 +1,10 @@
-<!doctype html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Casa em Jogo — V0.5</title>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<section id="start" class="screen active">
-  <div class="startbox">
-    <div class="logo"><span>CASA</span><b>EM JOGO</b><small>V0.5 • REALITY SOCIAL</small></div>
-    <div class="creator">
-      <h1>Crie seu participante</h1>
-      <label>Nome</label>
-      <input id="name" maxlength="16" value="Theo">
-      <label>Perfil inicial</label>
-      <div class="traits">
-        <button data-trait="Social" class="trait selected">🤝 Social</button>
-        <button data-trait="Competitivo" class="trait">🏆 Competitivo</button>
-        <button data-trait="Provocador" class="trait">🔥 Provocador</button>
-        <button data-trait="Observador" class="trait">👁 Observador</button>
-      </div>
-      <label>Cor</label><div id="colors" class="colors"></div>
-      <button id="play" class="primary">ENTRAR NA CASA</button>
-      <p class="note">Offline • sem instalação • cenário enviado por você</p>
-    </div>
-  </div>
-</section>
-
-<section id="game" class="screen">
-  <main class="stage">
-    <canvas id="canvas" width="1024" height="765"></canvas>
-    <div id="topHud">
-      <div>⚡ <b id="energy">100</b></div>
-      <div>🤝 <b id="social">50</b></div>
-      <div>⭐ <b id="rep">50</b></div>
-      <div>🪙 <b id="coins">500</b></div>
-    </div>
-    <div id="roomBadge">SALA</div>
-    <div id="prompt">WASD/setas • E conversar • F ação/porta</div>
-  </main>
-
-  <aside>
-    <header><h2>CASA EM JOGO</h2><span>TEMPORADA 1</span></header>
-    <div class="status">
-      <b id="round">RODADA 1</b>
-      <strong id="timer">01:10</strong>
-      <small id="event"></small>
-      <div class="buttons">
-        <button id="musicBtn">♫ Música ON</button>
-        <button id="gossipBtn">📺 Fofocas</button><button id="relBtn">🤝 Relações</button>
-      </div>
-    </div>
-    <h3>PARTICIPANTES</h3><div id="players"></div>
-    <h3>ACONTECIMENTOS</h3><div id="feed"></div>
-  </aside>
-</section>
-
-<div id="modal" class="modal hidden">
-  <div class="panel">
-    <i></i><h2 id="modalTitle"></h2><p id="modalText"></p><div id="choices"></div>
-  </div>
-</div>
-
-<div id="dialogue" class="dialogue hidden">
-      <div id="portrait" class="portrait"></div>
-      <div class="dialogue-main">
-        <div id="speaker" class="speaker">Luna</div>
-        <div id="dialogueText" class="dialogue-text"></div>
-        <div id="dialogueChoices" class="dialogue-choices"></div>
-        <div id="dialogueHint" class="dialogue-hint">ESPAÇO para continuar</div>
-      </div>
-    </div>
-    <div id="toast" class="toast hidden"></div>
-
-<script src="game.js"></script>
-</body>
-</html>
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Casa em Jogo — V1.1</title><link rel="stylesheet" href="style.css"></head><body>
+<section id="start" class="screen active"><div class="start-bg"></div><div class="start-overlay"></div><div class="start-shell">
+<section class="hero-panel"><div class="season-pill">● TEMPORADA 1 • PROTÓTIPO V1.1</div><div class="brand"><span>CASA</span><b>EM JOGO</b><em>CONVIVA • JOGUE • SOBREVIVA</em></div><p class="hero-copy">Um reality social em pixel art onde alianças, fofocas, provas e decisões mudam a temporada.</p><div class="hero-features"><div><strong>🏆 5+</strong><span>Provas</span></div><div><strong>🤝</strong><span>Relações</span></div><div><strong>📺</strong><span>Fofocas</span></div><div><strong>⚡</strong><span>Poderes</span></div></div><div class="mini-profile"><img id="startPortrait" src="assets/portraits/theo.png"><div><small>SEU PARTICIPANTE</small><b id="previewName">Theo</b><span id="previewTrait">🤝 Social</span></div></div></section>
+<section class="creator-card"><div class="creator-title"><span>CRIAR PARTICIPANTE</span><small>Personalize sua entrada na casa</small></div><label for="name">NOME</label><input id="name" maxlength="16" value="Theo" autocomplete="off"><label>ESTILO DE JOGO</label><div class="traits"><button data-trait="Social" class="trait selected"><b>🤝</b><span>Social<small>mais afinidade</small></span></button><button data-trait="Competitivo" class="trait"><b>🏆</b><span>Competitivo<small>foco em provas</small></span></button><button data-trait="Provocador" class="trait"><b>🔥</b><span>Provocador<small>mais caos</small></span></button><button data-trait="Observador" class="trait"><b>👁</b><span>Observador<small>mais informação</small></span></button></div><label>COR DE DESTAQUE</label><div id="colors" class="colors"></div><div class="start-actions"><button id="play" class="primary"><span>ENTRAR NA CASA</span><b>▶</b></button><button id="howBtn" class="secondary">COMO JOGAR</button></div><div class="profile-summary"><span>🏆 Vitórias <b id="profileWins">0</b></span><span>🎬 Temporadas <b id="profileSeasons">0</b></span><span>🪙 Carteira <b id="profileCoins">0</b></span></div><p class="note">Offline • sem instalação • progresso salvo localmente no navegador</p></section>
+</div></section>
+<section id="game" class="screen"><main class="stage"><canvas id="canvas" width="1024" height="765"></canvas><div id="dayOverlay"></div><div id="topHud"><div class="hudchip energy">⚡ <span>ENERGIA</span><b id="energy">100</b></div><div class="hudchip social">🤝 <span>SOCIAL</span><b id="social">50</b></div><div class="hudchip rep">⭐ <span>REPUTAÇÃO</span><b id="rep">50</b></div><div class="hudchip coins">🪙 <span>MOEDAS</span><b id="coins">500</b></div></div><div id="roomBadge">SALA</div><div id="missionBadge" class="mission-badge">🎯 <span id="missionShort">Missão: carregando...</span></div><div id="prompt">WASD/setas • SHIFT correr • E conversar • F interagir • H colisões</div></main>
+<aside><header class="aside-head"><div><h2>CASA EM JOGO</h2><span>TEMPORADA 1</span></div><div id="dayLabel" class="day-label">DIA 1 ☀️</div></header><div class="status"><div class="status-top"><b id="round">RODADA 1</b><strong id="timer">01:10</strong></div><small id="event">Convivência</small><div class="buttons"><button id="musicBtn">♫ Música ON</button><button id="gossipBtn">📺 Fofocas</button><button id="relBtn">🤝 Relações</button><button id="powersBtn">⚡ Poderes</button><button id="missionsBtn">🎯 Missões</button><button id="profileBtn">🏅 Perfil</button><button id="collisionBtn">🧱 Colisão</button></div></div><h3>PARTICIPANTES</h3><div id="players"></div><h3>ACONTECIMENTOS</h3><div id="feed"></div></aside></section>
+<div id="modal" class="modal hidden"><div class="panel"><i></i><button id="modalClose" class="modal-close">×</button><h2 id="modalTitle"></h2><p id="modalText"></p><div id="choices"></div></div></div>
+<div id="dialogue" class="dialogue hidden"><div id="portrait" class="portrait"><img id="portraitImg" src="assets/portraits/luna.png"></div><div class="dialogue-main"><div id="speaker" class="speaker">Luna</div><div id="dialogueText" class="dialogue-text"></div><div id="dialogueChoices" class="dialogue-choices"></div><div id="dialogueHint" class="dialogue-hint">ESPAÇO para continuar</div></div></div>
+<div id="npcBubble" class="npcbubble hidden"></div><div id="toast" class="toast hidden"></div><script src="game.js"></script></body></html>
