@@ -1,21 +1,21 @@
-CASA EM JOGO — V1.1.2 — CORREÇÃO DO MAPA
+CASA EM JOGO — V1.1.4 BUGFIX
 
-CORREÇÃO PRINCIPAL
-A V1.1 dependia do navegador carregar assets/cenario_casa.png por caminho relativo
-ao abrir index.html usando file://. Em alguns navegadores isso podia deixar o canvas
-sem cenário mesmo com o PNG presente.
+Correções:
+- removido o mapa Base64 de dentro do game.js;
+- game.js reduzido para 44.2 KB;
+- início não depende do carregamento do mapa;
+- apenas um loop requestAnimationFrame;
+- proteção contra loop de erro infinito;
+- cooldown de ações corrigido;
+- teclado bloqueado corretamente em menus;
+- limites de stats normalizados;
+- timer de eventos estabilizado;
+- diálogo antigo limpo no início.
 
-Nesta versão:
-• O cenário ORIGINAL enviado pelo usuário continua em assets/cenario_casa.png.
-• Uma cópia idêntica do PNG também fica EMBUTIDA no game.js como Data URI.
-• O botão Entrar na Casa espera map.decode() terminar antes de iniciar.
-• O jogo confirma naturalWidth/naturalHeight antes de desenhar.
-• O canvas também tem o PNG como background CSS de segurança.
-• Se houver falha, aparece uma mensagem visível em vez de uma tela vazia.
-
-TESTES
-• PNG conferido: 1024 × 765.
-• JavaScript: node --check OK.
-• Data URI do cenário confirmada no game.js.
-• IDs HTML x JavaScript: OK.
-• Funções duplicadas: nenhuma.
+QA:
+- node --check OK;
+- mapa 1024x765;
+- 8 sprites e 8 retratos;
+- IDs DOM válidos (runtimeError é criado dinamicamente);
+- nenhuma função duplicada;
+- nenhuma referência WALK antiga.
