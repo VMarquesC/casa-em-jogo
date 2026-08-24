@@ -1,0 +1,34 @@
+# Dependências
+node_modules/
+
+# Builds e pacotes locais
+*.zip
+*.7z
+*.rar
+
+# Arquivos de QA gerados localmente
+QA_*.png
+QA_*.txt
+QA_*.json
+HOTFIX_*.txt
+LEIA-ME_V*.txt
+
+# Temporários
+*.tmp
+*.temp
+*.log
+.DS_Store
+Thumbs.db
+
+# Editores
+.vscode/
+.idea/
+
+# Ambiente local
+.env
+.env.*
+!.env.example
+
+# Backups locais
+*_backup.*
+*.bak
