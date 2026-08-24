@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Casa em Jogo</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <section id="start" class="screen active">
+    <div class="hero">
+      <div class="tv"><span>CASA</span><b>EM JOGO</b></div>
+      <h1>Um reality social em pixel art</h1>
+      <p>Entre na casa, forme alianças, sobreviva às votações e chegue à final.</p>
+      <input id="name" maxlength="16" value="Theo" placeholder="Seu nome">
+      <button id="play">ENTRAR NA CASA</button>
+      <small>Protótipo offline • 1 jogador + 7 bots</small>
+    </div>
+  </section>
+
+  <section id="game" class="screen">
+    <canvas id="canvas" width="960" height="720"></canvas>
+    <aside>
+      <h2>CASA EM JOGO</h2><div class="tag">TEMPORADA 1</div>
+      <div id="round"></div><div id="timer"></div>
+      <h3>PARTICIPANTES</h3><div id="players"></div>
+      <h3>ACONTECEU NA CASA</h3><div id="feed"></div>
+    </aside>
+  </section>
+</div>
+
+<div id="modal" class="modal hidden">
+ <div class="panel"><h2 id="modalTitle"></h2><p id="modalText"></p><div id="choices"></div></div>
+</div>
+<script src="game.js"></script>
+</body></html>
