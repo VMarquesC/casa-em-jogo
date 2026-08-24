@@ -568,7 +568,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.7.0");
+ toast("CASA EM JOGO • V1.7.1");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -1192,7 +1192,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.7.0] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.7.1] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
@@ -1719,8 +1719,27 @@ function weekFlowStatusText(){
  return REALITY.phase||""
 }
 
+
+const REALITY={
+ day:1,
+ phase:"Convivência",
+ leader:null,
+ angel:null,
+ immune:new Set(),
+ partyPending:false,
+ partyActive:false,
+ confessionQueue:[],
+ confessionBusy:false,
+ history:[],
+ lastWinner:null,
+ relationships:new Map(),
+ alliances:[],
+ memories:new Map(),
+ gossipLog:[]
+};
+
 function realityPersonKey(p){return p?.name||"Participante"}
-function realityAlive(){return people.filter(p=>!p.eliminated)}
+function realityAlive(){return people.filter(p=>p.alive!==false&&!p.eliminated)}
 function realityNPCs(){return realityAlive().filter(p=>!p.human)}
 
 function realityRel(a,b){
