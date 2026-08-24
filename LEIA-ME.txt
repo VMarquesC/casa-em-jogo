@@ -1,24 +1,20 @@
-CASA EM JOGO — V1.3.6 WALLS + BLUE PATHS
+CASA EM JOGO — V1.3.7 WALL COLLISION
 
-Correção baseada exatamente na última imagem enviada:
+CORREÇÃO
+- paredes voltaram a ser colisões explícitas;
+- as áreas azuis da versão anterior continuam caminháveis;
+- móveis continuam bloqueando separadamente;
+- sem teleporte.
 
-VERMELHO = parede/limite
-AZUL = local em que o personagem também precisa conseguir andar
+MELHORIAS
+- sliding ao encostar em paredes;
+- pathfinding otimizado (grade 4px);
+- NPCs recalculam rota com menos frequência;
+- debug H: verde=piso, amarelo=móvel, vermelho=parede;
+- primeira visita a um cômodo entra no feed;
+- dicas contextuais aparecem após alguns segundos no ambiente.
 
-Foram corrigidas/testadas:
-- lateral direita da cozinha;
-- faixa inferior da sala;
-- corredor central do quarto;
-- faixa à direita do corredor;
-- eixo central do lounge;
-- faixa direita do lounge;
-- lateral esquerda do confessionário;
-- lateral direita do confessionário;
-- faixa inferior do confessionário.
-
-A arte do mapa NÃO foi alterada.
-
-A hitbox do personagem agora é 5 px.
-A grade de pathfinding agora é 3 px.
-
-Todas as áreas azuis e as rotas principais passaram nos testes.
+QA
+- pontos de parede testados como bloqueados;
+- sete faixas azuis principais continuam com rota;
+- inicialização cria 8 participantes e 7 NPCs.

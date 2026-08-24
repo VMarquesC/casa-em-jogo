@@ -1,6 +1,6 @@
 // Estados globais que precisam existir antes de qualquer callback/evento.
 var keys = Object.create(null);
-var NAV_STEP = 3;
+var NAV_STEP = 4;
 const C=document.querySelector("#canvas"),ctx=C.getContext("2d");
 ctx.imageSmoothingEnabled=false;
 const SPRITES={};
@@ -149,6 +149,38 @@ const SOLIDS=[
 
 ];
 
+const WALLS=[
+ // COZINHA
+ [38,218,282,7],[38,218,7,402],[38,613,112,7],[267,613,53,7],
+ [313,218,7,72],[313,489,7,131],
+
+ // SALA
+ [333,106,305,7],[333,106,7,185],[333,501,305,7],[631,106,7,197],
+ [333,291,7,126],[631,304,7,120],
+
+ // HALL
+ [330,458,7,101],[631,458,7,101],[297,637,384,7],
+
+ // PÁTIO
+ [12,605,137,7],[268,605,344,7],[12,605,7,160],[605,605,7,160],
+
+ // QUARTO - abertura central inferior preservada
+ [624,16,360,7],[624,16,7,315],[977,16,7,315],
+ [624,324,66,7],[874,324,110,7],
+
+ // CORREDOR
+ [603,297,87,7],[874,297,19,7],[603,297,7,126],[886,297,7,198],
+ [603,488,10,7],[811,488,82,7],
+ [861,310,23,147],
+
+ // LOUNGE
+ [612,462,7,286],[612,741,126,7],[844,605,7,143],
+
+ // CONFESSIONÁRIO
+ [770,470,225,7],[770,470,7,285],[988,470,7,285],[770,748,225,7]
+];
+
+
 // Portais só existem onde o próprio desenho tem cômodos fisicamente separados.
 // Bots NÃO usam teleportes aleatórios.
 const PORTALS=[
@@ -187,6 +219,7 @@ function circleRect(cx,cy,r,bx,by,bw,bh){
  return (cx-nx)*(cx-nx)+(cy-ny)*(cy-ny)<r*r
 }
 function staticBlocked(x,y,r=PLAYER_RADIUS){
+ if(WALLS.some(([bx,by,bw,bh])=>circleRect(x,y,r,bx,by,bw,bh)))return true;
  return SOLIDS.some(([bx,by,bw,bh])=>circleRect(x,y,r,bx,by,bw,bh))
 }
 
@@ -208,18 +241,23 @@ function canMoveStatic(x,y,r=PLAYER_RADIUS){
  return pointInFloors(x,y,r)&&!staticBlocked(x,y,r)
 }
 function tryMovePlayer(nx,ny){
+ if(!me)return false;
  if(canMove(nx,ny,me)){me.x=nx;me.y=ny;return true}
+
+ const dx=nx-me.x,dy=ny-me.y;
+ let moved=false;
+ if(Math.abs(dx)>.001&&canMove(me.x+dx,me.y,me)){me.x+=dx;moved=true}
+ if(Math.abs(dy)>.001&&canMove(me.x,me.y+dy,me)){me.y+=dy;moved=true}
+ if(moved)return true;
 
  if(canMoveStatic(nx,ny,PLAYER_RADIUS)){
   const blocker=blockingActor(nx,ny,PLAYER_RADIUS,me);
   if(blocker&&!blocker.human){
-   let dx=blocker.x-me.x,dy=blocker.y-me.y,d=Math.hypot(dx,dy)||1;
-   dx/=d;dy/=d;
-   const push=4;
-   if(canMove(blocker.x+dx*push,blocker.y+dy*push,blocker)){
-    blocker.x+=dx*push;blocker.y+=dy*push;
-    blocker.path=[];blocker.pathIndex=0;blocker.repathCd=0;
-    if(canMove(nx,ny,me)){me.x=nx;me.y=ny;return true}
+   let bx=blocker.x-me.x,by=blocker.y-me.y,d=Math.hypot(bx,by)||1;
+   bx/=d;by/=d;
+   if(canMove(blocker.x+bx*2.5,blocker.y+by*2.5,blocker)){
+    blocker.x+=bx*2.5;blocker.y+=by*2.5;
+    blocker.path=[];blocker.pathIndex=0;blocker.repathCd=0
    }
   }
  }
@@ -530,7 +568,7 @@ function start(){
  gameStarted=true;
  const name=document.querySelector("#name").value.trim()||"Jogador";
  // reset completo para impedir estado parcial caso o usuário tente iniciar novamente
- phase="social";round=1;time=70;confessionCallCd=38;autoConfession=null;homePositions=null;challengeArenaKey="";feed=[];leader="";immune="";eventName="";near=null;doorNear=null;dialogueOpen=false;currentDialogue=null;if(typingTimer){clearInterval(typingTimer);typingTimer=null}document.querySelector("#dialogue").classList.add("hidden");closeModal();
+ phase="social";round=1;time=70;roomVisitHistory=new Set();roomStayTime=0;confessionCallCd=38;autoConfession=null;homePositions=null;challengeArenaKey="";feed=[];leader="";immune="";eventName="";near=null;doorNear=null;dialogueOpen=false;currentDialogue=null;if(typingTimer){clearInterval(typingTimer);typingTimer=null}document.querySelector("#dialogue").classList.add("hidden");closeModal();
  alliances=[];gossips=[];relationship={};eventCd=18;actionCd=0;roomActionCd=0;challenge=0;
  stats={energy:100,social:50,rep:50,coins:500};
  if(trait==="Social")stats.social=62;
@@ -569,7 +607,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.3.6");
+ toast("CASA EM JOGO • V1.3.7");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -1066,15 +1104,17 @@ function toggleCollisionDebug(){
 }
 function drawCollisionDebug(){
  ctx.save();
- ctx.globalAlpha=.25;ctx.fillStyle="#22c55e";
+ ctx.globalAlpha=.20;ctx.fillStyle="#22c55e";
  FLOOR_RECTS.forEach(r=>ctx.fillRect(r.x,r.y,r.w,r.h));
- PASSAGE_FLOORS.forEach(r=>ctx.fillRect(r.x,r.y,r.w,r.h));
- ctx.globalAlpha=.38;ctx.fillStyle="#ef4444";
+ ctx.globalAlpha=.35;ctx.fillStyle="#facc15";
  SOLIDS.forEach(([x,y,w,h])=>ctx.fillRect(x,y,w,h));
- ctx.globalAlpha=.9;ctx.fillStyle="#facc15";
- PORTALS.forEach(p=>{ctx.beginPath();ctx.arc(p.ax,p.ay,5,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(p.bx,p.by,5,0,Math.PI*2);ctx.fill()});
+ ctx.globalAlpha=.58;ctx.fillStyle="#ef4444";
+ WALLS.forEach(([x,y,w,h])=>ctx.fillRect(x,y,w,h));
+ ctx.globalAlpha=.95;ctx.strokeStyle="#fff";ctx.lineWidth=1;
+ if(me){ctx.beginPath();ctx.arc(me.x,me.y,PLAYER_RADIUS,0,Math.PI*2);ctx.stroke()}
  ctx.restore()
 }
+
 function showNpcBubble(p,text){
  if(!p||!C)return;
  const el=document.querySelector("#npcBubble");
@@ -1135,11 +1175,24 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.3.6] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.3.7] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
 function normalizeStats(){if(!stats||typeof stats!=="object")stats={energy:100,social:50,rep:50,coins:0};stats.energy=Math.max(0,Math.min(115,Number.isFinite(stats.energy)?stats.energy:0));stats.social=Math.max(0,Math.min(100,Number.isFinite(stats.social)?stats.social:0));stats.rep=Math.max(0,Math.min(100,Number.isFinite(stats.rep)?stats.rep:0));stats.coins=Math.max(0,Number.isFinite(stats.coins)?stats.coins:0)}
+
+function roomContextHint(){
+ if(!me||phase!=="social"||roomStayTime<11)return "";
+ const hints={
+  "COZINHA":"🍳 Cozinha: bom lugar para conversar.",
+  "SALA":"🛋️ Sala: observe alianças e movimentações.",
+  "QUARTO":"🛏️ Quarto: grupos costumam se reunir aqui.",
+  "LOUNGE":"💬 Lounge: lugar perfeito para fofocas.",
+  "PÁTIO / PISCINA":"🏊 Pátio: festas e eventos acontecem aqui.",
+  "CONFESSIONÁRIO":"📺 Confessionário: aguarde a Produção chamar."
+ };
+ return hints[roomAt(me.x,me.y)]||""
+}
 function ui(){if(!me)return;normalizeStats();document.querySelector("#energy").textContent=Math.round(stats.energy);document.querySelector("#social").textContent=Math.round(stats.social);document.querySelector("#rep").textContent=Math.round(stats.rep);document.querySelector("#coins").textContent=Math.round(stats.coins);document.querySelector("#roomBadge").textContent=phase==="challenge"?"🏟️ ARENA DA PROVA":roomAt(me.x,me.y)+(collisionDebug?" • DEBUG":"");const mc=activeMission?Math.min(activeMission.goal,missionCurrent()):0;document.querySelector("#missionShort").textContent=activeMission?`${activeMission.text} ${mc}/${activeMission.goal}`:"Sem missão";document.querySelector("#round").textContent=`RODADA ${round} • ${phase==="social"?"CONVIVÊNCIA":phase==="challenge"?"PROVA":"CERIMÔNIA"}`;document.querySelector("#timer").textContent=phase==="social"?`${String(Math.floor(Math.max(0,time)/60)).padStart(2,"0")}:${String(Math.ceil(Math.max(0,time)%60)).padStart(2,"0")}`:"EVENTO";document.querySelector("#event").textContent=eventName||(phase==="social"?"Convivência livre":"Evento em andamento");const night=round%3===0;document.querySelector("#dayLabel").textContent=`DIA ${round} ${night?"🌙":"☀️"}`;document.querySelector("#dayOverlay").style.opacity=night?".23":"0";document.querySelector("#players").innerHTML=people.map(p=>{const rel=relationship&&relationship[p.name],key=p.human?"theo":String(p.name||"npc").toLowerCase(),r=p===me?"Você":(rel?`🤝${rel.trust} 👁${rel.suspicion}`:"");return `<div class="person ${p.alive?"":"dead"}"><img src="assets/portraits/${key}.png"><div><span class="pname">${p.name}</span><span class="pmeta">${p.alive?(p.human?p.mood:`${p.mood} • ${p.activity||"pela casa"}`):"eliminado"}</span></div><span class="relation-mini">${r}</span></div>`}).join("");document.querySelector("#feed").innerHTML=feed.map(f=>`<div class="eventline">${f}</div>`).join("")}
 function alivePeople(){return people.filter(p=>p.alive)}
 function addFeed(t){
