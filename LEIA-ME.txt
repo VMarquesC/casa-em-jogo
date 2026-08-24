@@ -1,25 +1,34 @@
-CASA EM JOGO — V0.4
+CASA EM JOGO — V0.7
 
+NOVIDADES V0.7
+- Caixa de diálogo estilo RPG na parte inferior.
+- Nome e retrato visual do participante.
+- Texto aparece com efeito de digitação.
+- Escolhas de resposta dentro da própria caixa de diálogo.
+- Conversas agora alteram confiança, afinidade e suspeita.
+- Tela de Relações com cada participante.
+- Alianças, fofocas, promessa de proteção e provocações conectadas às relações.
+- Confessionário convertido para diálogo RPG.
+- Colisões circulares mais precisas contra retângulos.
+- Jogador não atravessa outros participantes.
+- Bots também não atravessam jogador/NPCs.
+- Mais objetos do cenário receberam colisão.
+- Direção visual do personagem (cima/baixo/esquerda/direita).
+- Pequena animação de caminhada.
+- Movimento bloqueado enquanto uma conversa está aberta.
+- Mantém o cenário enviado pelo usuário sem trocar a imagem.
 
-CONTROLES
-WASD/setas: andar
-E: conversar
-F: ação do cômodo
+NOTA
+Como o cenário continua sendo uma imagem única (não um tilemap), as colisões são
+mapeadas manualmente sobre os elementos visuais. Esta V0.7 adiciona mais regiões
+e usa colisão circular, então a sensação fica bem mais sólida.
 
-NOVIDADES
-- Música procedural dentro do navegador (sem arquivo externo)
-- Botão para ligar/desligar música
-- Bate-papo com opções de conversa
-- Perguntar voto
-- Propor aliança
-- Espalhar fofoca
-- Provocar participantes
-- Central de Fofocas
-- Mais eventos da produção
-- 3 tipos de prova: Reflexo, Memória e Caixas
-- Sistema de alianças, social, reputação e energia
-- Casa e HUD com mais detalhes
-- Continua 100% offline e sem instalação
-
-PIXEL ART
-A pasta assets continua pronta para receber PNGs/spritesheets.
+NOVIDADES V0.7
+- 8 sprites pixel art originais incluídos como PNG transparente.
+- Theo, Luna, Caio, Bia, Noah, Maya, Davi e Nina têm visual próprio.
+- Cada spritesheet possui 4 direções: baixo, esquerda, direita e cima.
+- Cada direção possui 4 frames.
+- NPCs agora mudam de direção visual ao caminhar.
+- Personagem principal usa animação baseada no movimento.
+- Renderização pixel-perfect com suavização desativada.
+- Sprites ficam em assets/sprites/ e podem ser editados/substituídos depois.

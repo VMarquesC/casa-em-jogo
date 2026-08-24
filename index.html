@@ -3,89 +3,76 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Casa em Jogo</title>
+<title>Casa em Jogo — V0.5</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="app">
-  <section id="start" class="screen active">
-    <div class="start-grid">
-      <div class="brand-card">
-        <div class="logo-box">
-          <span>CASA</span><b>EM JOGO</b>
-          <em>REALITY SOCIAL</em>
-        </div>
-        <h1>Conviva. Forme alianças. Sobreviva.</h1>
-        <p>Um reality social em pixel art, com estratégia, fofoca e eliminação.</p>
-        <div class="feature-row">
-          <span>8 jogadores</span><span>Votação secreta</span><span>Eventos</span><span>Final</span>
-        </div>
+<section id="start" class="screen active">
+  <div class="startbox">
+    <div class="logo"><span>CASA</span><b>EM JOGO</b><small>V0.5 • REALITY SOCIAL</small></div>
+    <div class="creator">
+      <h1>Crie seu participante</h1>
+      <label>Nome</label>
+      <input id="name" maxlength="16" value="Theo">
+      <label>Perfil inicial</label>
+      <div class="traits">
+        <button data-trait="Social" class="trait selected">🤝 Social</button>
+        <button data-trait="Competitivo" class="trait">🏆 Competitivo</button>
+        <button data-trait="Provocador" class="trait">🔥 Provocador</button>
+        <button data-trait="Observador" class="trait">👁 Observador</button>
       </div>
+      <label>Cor</label><div id="colors" class="colors"></div>
+      <button id="play" class="primary">ENTRAR NA CASA</button>
+      <p class="note">Offline • sem instalação • cenário enviado por você</p>
+    </div>
+  </div>
+</section>
 
-      <div class="create-card">
-        <div class="eyebrow">CRIAR PARTICIPANTE</div>
-        <label>Nome</label>
-        <input id="name" maxlength="16" value="Theo" placeholder="Seu nome">
-        <label>Personalidade inicial</label>
-        <div class="traits">
-          <button class="trait selected" data-trait="Social">🤝 Social</button>
-          <button class="trait" data-trait="Competitivo">🏆 Competitivo</button>
-          <button class="trait" data-trait="Provocador">🔥 Provocador</button>
-          <button class="trait" data-trait="Observador">👁 Observador</button>
-        </div>
-        <label>Cor do participante</label>
-        <div class="colors" id="colors"></div>
-        <button id="play" class="primary">ENTRAR NA CASA</button>
-        <small>Protótipo offline • sem instalação • 1 jogador + 7 bots</small>
+<section id="game" class="screen">
+  <main class="stage">
+    <canvas id="canvas" width="1024" height="765"></canvas>
+    <div id="topHud">
+      <div>⚡ <b id="energy">100</b></div>
+      <div>🤝 <b id="social">50</b></div>
+      <div>⭐ <b id="rep">50</b></div>
+      <div>🪙 <b id="coins">500</b></div>
+    </div>
+    <div id="roomBadge">SALA</div>
+    <div id="prompt">WASD/setas • E conversar • F ação/porta</div>
+  </main>
+
+  <aside>
+    <header><h2>CASA EM JOGO</h2><span>TEMPORADA 1</span></header>
+    <div class="status">
+      <b id="round">RODADA 1</b>
+      <strong id="timer">01:10</strong>
+      <small id="event"></small>
+      <div class="buttons">
+        <button id="musicBtn">♫ Música ON</button>
+        <button id="gossipBtn">📺 Fofocas</button><button id="relBtn">🤝 Relações</button>
       </div>
     </div>
-  </section>
-
-  <section id="game" class="screen">
-    <div class="game-wrap">
-      <div class="canvas-wrap">
-        <canvas id="canvas" width="1000" height="720"></canvas>
-        <div id="hint">WASD / setas para andar • E conversar • F ação do cômodo</div>
-<div id="hudMini">
-  <div><span>🤝 Social</span><b id="socialStat">50</b></div>
-  <div><span>🔥 Reputação</span><b id="repStat">50</b></div>
-  <div><span>⚡ Energia</span><b id="energyStat">100</b></div>
-</div>
-      </div>
-      <aside>
-        <div class="side-top">
-          <h2>CASA EM JOGO</h2>
-          <div class="tag">TEMPORADA 1</div>
-        </div>
-        <div class="status-card">
-          <div id="round"></div>
-          <div id="timer"></div>
-          <div id="eventBadge"></div>
-<div class="soundrow"><button id="musicBtn">♫ Música: ON</button><button id="newsBtn">📺 Fofocas</button></div>
-        </div>
-
-        <h3>PARTICIPANTES</h3>
-        <div id="players"></div>
-
-        <h3>ACONTECEU NA CASA</h3>
-        <div id="feed"></div>
-      </aside>
-    </div>
-  </section>
-</div>
+    <h3>PARTICIPANTES</h3><div id="players"></div>
+    <h3>ACONTECIMENTOS</h3><div id="feed"></div>
+  </aside>
+</section>
 
 <div id="modal" class="modal hidden">
   <div class="panel">
-    <div class="panel-accent"></div>
-    <h2 id="modalTitle"></h2>
-    <p id="modalText"></p>
-    <div id="choices"></div>
+    <i></i><h2 id="modalTitle"></h2><p id="modalText"></p><div id="choices"></div>
   </div>
 </div>
 
-<div id="chatBubble" class="bubble hidden"></div>
-<div id="chatBox" class="chatbox hidden"><div class="chathead"><b id="chatName">Conversa</b><button id="chatClose">×</button></div><div id="chatLog"></div><div class="chatopts" id="chatOpts"></div></div>
-<div id="toast" class="toast hidden"></div>
+<div id="dialogue" class="dialogue hidden">
+      <div id="portrait" class="portrait"></div>
+      <div class="dialogue-main">
+        <div id="speaker" class="speaker">Luna</div>
+        <div id="dialogueText" class="dialogue-text"></div>
+        <div id="dialogueChoices" class="dialogue-choices"></div>
+        <div id="dialogueHint" class="dialogue-hint">ESPAÇO para continuar</div>
+      </div>
+    </div>
+    <div id="toast" class="toast hidden"></div>
 
 <script src="game.js"></script>
 </body>
