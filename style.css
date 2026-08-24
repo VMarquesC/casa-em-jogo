@@ -5,3 +5,63 @@
 .primary:disabled{opacity:.72;cursor:wait}.runtime-error{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:9999;width:min(650px,92vw);display:none;align-items:center;gap:10px;background:#401923;color:#fff;border:1px solid #fb7185;border-bottom:4px solid #fb7185;border-radius:10px;padding:12px 14px;box-shadow:0 15px 40px #000b}.runtime-error b{white-space:nowrap}.runtime-error span{flex:1;color:#ffd7df;font-size:12px;overflow-wrap:anywhere}.runtime-error button{border:1px solid #fda4af;background:#671f30;color:#fff;border-radius:6px;padding:6px 9px;cursor:pointer}
 
 .primary:disabled{opacity:.65;cursor:wait}.runtime-error{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:9999;width:min(680px,92vw);background:#41151b;color:#fff;border:1px solid #fb7185;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px}.runtime-error span{flex:1;font-size:11px;color:#fecdd3}.runtime-error button{background:#fff;color:#41151b;border:0;border-radius:6px;padding:6px 9px;font-weight:900}
+
+
+/* ===== V1.5 REALITY UI ===== */
+:root{
+ --glass:rgba(10,15,28,.82);
+ --glass2:rgba(255,255,255,.08);
+ --line:rgba(255,255,255,.15);
+}
+#start{
+ background:
+   radial-gradient(circle at 50% 18%,rgba(151,71,255,.28),transparent 34%),
+   radial-gradient(circle at 20% 80%,rgba(0,221,255,.16),transparent 30%),
+   linear-gradient(145deg,#090b16,#11182a 55%,#080a11);
+}
+#start .panel,.startCard,.card{
+ backdrop-filter:blur(16px);
+ border:1px solid var(--line)!important;
+ box-shadow:0 22px 70px rgba(0,0,0,.42);
+}
+#start h1{
+ letter-spacing:-2px;
+ text-shadow:0 0 28px rgba(168,85,247,.38);
+}
+#play{
+ transform:translateZ(0);
+ box-shadow:0 12px 32px rgba(124,58,237,.32);
+ transition:.18s ease;
+}
+#play:hover{transform:translateY(-2px) scale(1.015)}
+#play:active{transform:translateY(1px) scale(.99)}
+
+canvas{
+ image-rendering:pixelated;
+ border-radius:18px;
+ box-shadow:0 18px 60px rgba(0,0,0,.4);
+}
+
+/* Cards/botões com leitura melhor */
+button{
+ transition:transform .14s ease,filter .14s ease,box-shadow .14s ease;
+}
+button:hover{filter:brightness(1.08)}
+button:active{transform:scale(.97)}
+
+#players{
+ scrollbar-width:thin;
+}
+.playerRow,.player-card{
+ border:1px solid rgba(255,255,255,.1);
+ background:rgba(255,255,255,.055);
+ border-radius:12px;
+}
+
+/* Diálogo estilo reality */
+#dialogue{
+ backdrop-filter:blur(14px);
+ box-shadow:0 16px 48px rgba(0,0,0,.48);
+ border:1px solid rgba(255,255,255,.18);
+}
+#speaker{font-weight:900;letter-spacing:.3px}

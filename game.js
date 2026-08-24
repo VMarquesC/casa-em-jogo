@@ -568,7 +568,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.4.3");
+ toast("CASA EM JOGO • V1.5.0");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -612,6 +612,8 @@ function showFatalError(title,err){
 function modalOpen(){return !document.querySelector("#modal").classList.contains("hidden")}
 function uiBlocking(){return dialogueOpen||modalOpen()}
 function update(dt){
+ if(typeof REALITY!=="undefined")realityTick(dt);
+
  actionCd=Math.max(0,actionCd-dt);roomActionCd=Math.max(0,roomActionCd-dt);stats.energy=Math.max(0,stats.energy-dt*.09);if(!uiBlocking())eventCd=Math.max(-1,eventCd-dt);
  if(me.alive && autoConfession){updateConfessionalTravel(dt)}else if(me.alive && !uiBlocking()){
    let dx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);
@@ -1135,7 +1137,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.4.3] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.5.0] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
@@ -1198,3 +1200,264 @@ function toast(t){
 function toggleMusic(){musicOn=!musicOn;document.querySelector("#musicBtn").textContent=`♫ Música ${musicOn?"ON":"OFF"}`;musicOn?startMusic():stopMusic()}
 function startMusic(){if(!musicOn||musicTimer)return;try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)()}catch(e){return}let notes=[261.6,329.6,392,523.2,440,349.2,293.7,392],i=0;musicTimer=setInterval(()=>{let o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type="triangle";o.frequency.value=notes[i++%notes.length];g.gain.setValueAtTime(.018,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.2);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+.21)},300)}
 function stopMusic(){if(musicTimer){clearInterval(musicTimer);musicTimer=null}}
+
+// ============================================================
+// CASA EM JOGO V1.5 — REALITY UPDATE
+// ============================================================
+const REALITY={
+ day:1,
+ phase:"Convivência",
+ leader:null,
+ angel:null,
+ immune:new Set(),
+ partyPending:false,
+ partyActive:false,
+ confessionQueue:[],
+ confessionBusy:false,
+ history:[],
+ lastWinner:null,
+ relationships:new Map(),
+ alliances:[],
+ memories:new Map(),
+ gossipLog:[]
+};
+
+function realityPersonKey(p){return p?.name||"Participante"}
+function realityAlive(){return people.filter(p=>!p.eliminated)}
+function realityNPCs(){return realityAlive().filter(p=>!p.human)}
+
+function realityRel(a,b){
+ const k=[realityPersonKey(a),realityPersonKey(b)].sort().join("::");
+ if(!REALITY.relationships.has(k))REALITY.relationships.set(k,Math.floor(Math.random()*31)-5);
+ return REALITY.relationships.get(k)
+}
+function realityChangeRel(a,b,n){
+ const k=[realityPersonKey(a),realityPersonKey(b)].sort().join("::");
+ REALITY.relationships.set(k,Math.max(-100,Math.min(100,realityRel(a,b)+n)))
+}
+function realityRemember(p,text){
+ const k=realityPersonKey(p);
+ if(!REALITY.memories.has(k))REALITY.memories.set(k,[]);
+ const m=REALITY.memories.get(k);m.unshift(text);if(m.length>8)m.pop()
+}
+function realityHistory(text){
+ REALITY.history.unshift(`Dia ${REALITY.day} — ${text}`);
+ if(REALITY.history.length>40)REALITY.history.pop();
+ addFeed("📺 "+text)
+}
+
+function realityTrait(p){
+ const s=((p.personality||p.trait||"").toLowerCase());
+ if(s.includes("compet"))return "competitivo";
+ if(s.includes("estrat"))return "estrategista";
+ if(s.includes("social")||s.includes("carism"))return "social";
+ return ["social","estrategista","competitivo","imprevisível"][Math.abs(realityPersonKey(p).split("").reduce((a,c)=>a+c.charCodeAt(0),0))%4]
+}
+function realityChallengeScore(p,type="lider"){
+ let score=Math.random()*100;
+ const t=realityTrait(p);
+ if(t==="competitivo")score+=type==="lider"?18:12;
+ if(t==="estrategista")score+=type==="anjo"?16:8;
+ if(t==="social")score+=6;
+ if(p.human)score+=0; // player NÃO recebe vantagem escondida
+ if(REALITY.lastWinner===p)score-=10; // reduz sequências artificiais
+ return score
+}
+function realityPickChallengeWinner(type="lider"){
+ const pool=realityAlive();
+ if(!pool.length)return null;
+ const ranked=pool.map(p=>[p,realityChallengeScore(p,type)]).sort((a,b)=>b[1]-a[1]);
+ return ranked[0][0]
+}
+function realitySetLeader(p){
+ REALITY.leader=p;REALITY.immune.add(realityPersonKey(p));REALITY.lastWinner=p;
+ realityRemember(p,"Venceu a Prova do Líder e ganhou imunidade.");
+ realityHistory(`${p.name} venceu a Prova do Líder e está imune.`);
+ REALITY.partyPending=true
+}
+function realitySetAngel(p){
+ REALITY.angel=p;REALITY.lastWinner=p;
+ const options=realityAlive().filter(x=>x!==p && !REALITY.immune.has(realityPersonKey(x)))
+   .sort((a,b)=>realityRel(p,b)-realityRel(p,a));
+ const target=options[0];
+ if(target){
+   REALITY.immune.add(realityPersonKey(target));
+   realityRemember(target,`${p.name} deu o Anjo e me imunizou.`);
+   realityRemember(p,`Imunizei ${target.name} com o Anjo.`);
+   realityHistory(`${p.name} venceu o Anjo e imunizou ${target.name}.`)
+ }else realityHistory(`${p.name} venceu a Prova do Anjo.`)
+}
+
+function realityVoteChoice(voter){
+ const candidates=realityAlive().filter(p=>p!==voter&&!REALITY.immune.has(realityPersonKey(p)));
+ if(!candidates.length)return null;
+ return candidates.map(p=>{
+   let threat=0;
+   if(REALITY.leader===p)threat+=20;
+   if(REALITY.lastWinner===p)threat+=12;
+   const dislike=-realityRel(voter,p);
+   const noise=Math.random()*28;
+   return [p,dislike+threat+noise]
+ }).sort((a,b)=>b[1]-a[1])[0][0]
+}
+function realitySimulateHouseVote(){
+ const tally=new Map(), voters=realityAlive();
+ voters.forEach(v=>{
+   const target=realityVoteChoice(v); if(!target)return;
+   tally.set(target,(tally.get(target)||0)+1);
+   realityRemember(v,`Votei em ${target.name}.`);
+   realityRemember(target,`${v.name} pode ter votado em mim.`)
+ });
+ const ranked=[...tally.entries()].sort((a,b)=>b[1]-a[1]);
+ if(!ranked.length)return null;
+ const [target,count]=ranked[0];
+ realityHistory(`A casa deu ${count} voto${count===1?"":"s"} para ${target.name}.`);
+ return target
+}
+
+function realityGossip(){
+ const pool=realityAlive(); if(pool.length<2)return "A casa está quieta por enquanto.";
+ const speaker=pool[Math.floor(Math.random()*pool.length)];
+ const others=pool.filter(p=>p!==speaker);
+ const subject=others[Math.floor(Math.random()*others.length)];
+ const rel=realityRel(speaker,subject);
+ const memories=REALITY.memories.get(realityPersonKey(speaker))||[];
+ const templates=rel>35?[
+   `${speaker.name} disse que confia bastante em ${subject.name}.`,
+   `${speaker.name} acha que ${subject.name} pode ser importante para uma aliança.`,
+   `${speaker.name} contou que protegeria ${subject.name} em uma votação.`
+ ]:rel<-20?[
+   `${speaker.name} acha que ${subject.name} está jogando dos dois lados.`,
+   `${speaker.name} comentou que não pretende confiar em ${subject.name}.`,
+   `${speaker.name} acredita que ${subject.name} virou uma ameaça no jogo.`
+ ]:[
+   `${speaker.name} está tentando descobrir em quem ${subject.name} votaria.`,
+   `${speaker.name} comentou que ${subject.name} anda muito próximo de outros participantes.`,
+   `${speaker.name} ainda não sabe se pode confiar em ${subject.name}.`
+ ];
+ let text=templates[Math.floor(Math.random()*templates.length)];
+ if(memories.length && Math.random()<.35)text+=` Também lembrou: "${memories[0]}"`;
+ REALITY.gossipLog.unshift(text);if(REALITY.gossipLog.length>20)REALITY.gossipLog.pop();
+ return text
+}
+function realityShowGossip(){
+ const text=realityGossip();
+ addFeed("🗣️ FOFOCA: "+text);bubble("Tem fofoca nova 👀");
+ if(typeof toast==="function")toast(text)
+}
+
+function realityQueueConfession(p,reason){
+ if(!p||REALITY.confessionQueue.some(x=>x.p===p)||REALITY.confessionBusy)return;
+ REALITY.confessionQueue.push({p,reason})
+}
+function realityConfessionText(p){
+ const others=realityAlive().filter(x=>x!==p);
+ const rival=[...others].sort((a,b)=>realityRel(p,a)-realityRel(p,b))[0];
+ const ally=[...others].sort((a,b)=>realityRel(p,b)-realityRel(p,a))[0];
+ const opts=[
+   rival?`${p.name}: "Estou de olho em ${rival.name}. Não sei se dá para confiar."`:`${p.name}: "Preciso entender melhor esse jogo."`,
+   ally?`${p.name}: "${ally.name} é uma pessoa que eu quero por perto."`:`${p.name}: "Ainda estou procurando meu grupo."`,
+   `${p.name}: "Meu objetivo agora é sobreviver à próxima votação."`,
+   `${p.name}: "A casa está mudando e eu preciso prestar atenção nas alianças."`
+ ];
+ return opts[Math.floor(Math.random()*opts.length)]
+}
+function realityProcessConfession(){
+ if(REALITY.confessionBusy||!REALITY.confessionQueue.length)return;
+ const job=REALITY.confessionQueue.shift(),p=job.p;
+ if(!p||p.eliminated)return;
+ REALITY.confessionBusy=true;
+ const old=[p.x,p.y];
+ const target=typeof safePoint==="function"?safePoint("CONFESSIONÁRIO"):[906,458];
+ // NPCs recebem destino físico; player recebe chamada, não teleporte.
+ if(p.human){
+   addFeed("🔴 Confessionário chamou você. Vá até lá quando puder.");
+   bubble("Confessionário me chamou!")
+ }else{
+   p.targetRoom="CONFESSIONÁRIO";p.path=[];p.pathIndex=0;p.repathCd=0;
+   p.realityConfessionTarget=target;p.realityConfessionReturn=old;
+   addFeed(`🔴 ${p.name} foi chamado ao confessionário.`);
+ }
+ setTimeout(()=>{
+   const text=realityConfessionText(p);
+   realityHistory(`Confessionário de ${p.name}: ${text.replace(p.name+": ","")}`);
+   if(!p.human&&p.realityConfessionReturn){
+     p.targetRoom=roomAt(p.realityConfessionReturn[0],p.realityConfessionReturn[1]);
+     p.path=[];p.pathIndex=0;p.repathCd=0
+   }
+   REALITY.confessionBusy=false
+ },6500)
+}
+
+function realityCreateAlliance(){
+ const pool=realityAlive().filter(p=>!REALITY.alliances.some(a=>a.members.includes(p.name)));
+ if(pool.length<3)return;
+ const seed=pool[Math.floor(Math.random()*pool.length)];
+ const mates=pool.filter(p=>p!==seed).sort((a,b)=>realityRel(seed,b)-realityRel(seed,a)).slice(0,2);
+ if(mates.length<2)return;
+ const members=[seed,...mates];
+ members.forEach((a,i)=>members.forEach((b,j)=>{if(i<j)realityChangeRel(a,b,18)}));
+ const name=["Quarto","Comadres","Radar","Subsolo","Fechamento"][REALITY.alliances.length%5];
+ REALITY.alliances.push({name,members:members.map(x=>x.name)});
+ realityHistory(`Uma aliança começou a se formar entre ${members.map(x=>x.name).join(", ")}.`)
+}
+
+function realityStartParty(){
+ REALITY.partyPending=false;REALITY.partyActive=true;REALITY.phase="Festa";
+ REALITY.day++;
+ realityHistory("A festa começou! A casa inteira foi para a pista.");
+ realityAlive().forEach(p=>{
+   if(!p.human){p.targetRoom="FESTA";p.path=[];p.pathIndex=0;p.repathCd=0}
+ });
+ // Festa mexe nas relações e gera assunto.
+ const pool=realityAlive();
+ for(let i=0;i<Math.min(5,pool.length);i++){
+   const a=pool[Math.floor(Math.random()*pool.length)],b=pool[Math.floor(Math.random()*pool.length)];
+   if(a&&b&&a!==b)realityChangeRel(a,b,Math.random()<.7?8:-10)
+ }
+ setTimeout(()=>{
+   REALITY.partyActive=false;REALITY.phase="Pós-festa";
+   realityHistory("A festa terminou. O que aconteceu na pista virou assunto na casa.");
+   realityShowGossip();realityShowGossip()
+ },22000)
+}
+function realityNewCycle(){
+ REALITY.day++;REALITY.phase="Prova do Líder";REALITY.immune.clear();
+ const leader=realityPickChallengeWinner("lider");if(leader)realitySetLeader(leader);
+ setTimeout(()=>{
+   REALITY.phase="Prova do Anjo";
+   const angel=realityPickChallengeWinner("anjo");if(angel)realitySetAngel(angel)
+ },2500);
+ setTimeout(()=>{if(REALITY.partyPending)realityStartParty()},5000)
+}
+
+function realityTick(dt){
+ REALITY._clock=(REALITY._clock||0)+dt;
+ if(REALITY._clock>18){
+   REALITY._clock=0;
+   const npcs=realityNPCs();
+   if(npcs.length)realityQueueConfession(npcs[Math.floor(Math.random()*npcs.length)],"rotina");
+   if(Math.random()<.55)realityShowGossip();
+   if(Math.random()<.22)realityCreateAlliance()
+ }
+ realityProcessConfession()
+}
+
+
+setTimeout(()=>{
+ const gb=document.querySelector("#gossipBtn");
+ if(gb)gb.onclick=()=>realityShowGossip();
+},0);
+
+setTimeout(()=>{
+ const pb=document.querySelector("#play");
+ if(pb)pb.addEventListener("click",()=>{
+   setTimeout(()=>{
+     if(gameStarted){
+       realityHistory("A temporada começou. Ninguém tem vantagem escondida.");
+       realityCreateAlliance();
+       setTimeout(()=>realityNewCycle(),3500)
+     }
+   },300)
+ })
+},0);
