@@ -1,65 +1,49 @@
 # Casa em Jogo
 
-Casa em Jogo é um jogo web de simulação de reality show. A ideia é combinar convivência, relações entre participantes, provas, liderança, imunidade, votação, eliminação e eventos especiais dentro da casa.
+Casa em Jogo é um jogo web inspirado em reality shows. Comecei o projeto para brincar com a ideia de colocar vários participantes dentro de uma casa, cada um com suas relações, tretas e decisões durante o jogo.
 
-## Estado do projeto
+Ainda está em desenvolvimento e tem bastante coisa que quero melhorar.
 
-O repositório está sendo preparado para receber o histórico das versões do jogo. A versão mais recente trabalhada localmente é a **V1.13.0 — Code Refactor**, que reorganiza o JavaScript em arquivos menores e prepara a base para uma futura fase multiplayer.
+## O que já tem
 
-## Principais sistemas
-
-- movimentação e colisões no mapa da casa;
-- participantes controlados pelo jogador e por IA;
-- relações, fofocas, alianças e confessionário;
-- Líder, imunidade, votação e eliminação;
-- prova do labirinto com cronômetro, colisão e pathfinding;
-- festas na área de festa da própria casa;
-- emotes, animações de estado e chat local;
-- camada inicial de estado preparada para futura sincronização multiplayer.
+- mapa da casa com movimentação e colisões;
+- participantes controlados pelo jogador e NPCs;
+- relações, fofocas e alianças;
+- líder, imunidade, votação e eliminação;
+- prova do labirinto;
+- festas e eventos dentro da casa;
+- emotes e algumas animações;
+- sistema de diálogo e interações entre os participantes.
 
 ## Tecnologias
+
+O jogo está sendo feito com:
 
 - HTML
 - CSS
 - JavaScript
 - Canvas 2D
 
-## Estrutura planejada a partir da V1.13
+Não precisa instalar nada para testar. É só abrir o `index.html` no navegador.
 
-```text
-js/
-├── core/
-├── gameplay/
-├── social/
-├── reality/
-├── characters/
-├── challenges/
-├── ui/
-└── network/
-```
+## Versões
 
-## Documentação
+Fui salvando várias versões durante o desenvolvimento. O histórico do repositório mostra algumas das mudanças que fiz no mapa, movimentação, NPCs, colisões e na prova do labirinto.
 
-- [Arquitetura](docs/ARCHITECTURE.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Direção multiplayer](docs/MULTIPLAYER.md)
-- [Checklist de testes](docs/TESTING.md)
-- [Releases e versionamento](docs/RELEASES.md)
-- [Como importar o histórico antigo](docs/HISTORY_IMPORT.md)
-- [Guia de contribuição](CONTRIBUTING.md)
+A versão atual do histórico é a **v1.11.3**.
 
-## Roadmap
+## Próximas ideias
 
-Entre os objetivos estão melhorar os sprites e animações, adicionar novas provas, polir as festas e evoluir gradualmente para multiplayer com servidor autoritativo. As tarefas principais também estão organizadas nas Issues do repositório.
+Algumas coisas que ainda quero fazer:
 
-## Histórico de versões
+- melhorar os personagens e sprites;
+- criar animações melhores;
+- deixar os diálogos mais variados;
+- adicionar mais provas;
+- melhorar as festas e eventos;
+- melhorar o comportamento dos NPCs;
+- futuramente transformar o jogo em multiplayer.
 
-O histórico antigo será importado em commits e tags, preservando os estados reais que o projeto teve ao longo do desenvolvimento. Os arquivos ZIP das builds não devem ser versionados dentro do repositório.
+## Sobre o projeto
 
-## Desenvolvimento
-
-O repositório possui templates para bugs, sugestões e Pull Requests, além de uma GitHub Action simples para validar a sintaxe dos arquivos JavaScript quando o código for importado.
-
----
-
-Projeto em desenvolvimento.
+Esse projeto ainda muda bastante porque estou testando ideias enquanto desenvolvo. Algumas partes provavelmente vão ser refeitas conforme o jogo for crescendo.
