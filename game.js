@@ -568,7 +568,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.10.6");
+ toast("CASA EM JOGO • V1.10.7");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -584,7 +584,7 @@ function loop(now){
    let dt=(Number.isFinite(now)&&Number.isFinite(last))?(now-last)/1000:0;
    dt=Math.min(.05,Math.max(0,dt));
    last=Number.isFinite(now)?now:performance.now();
-   if(phase==="social")update(dt);
+   update(dt);
    draw();ui();loopErrorCount=0;
  }catch(err){
    loopErrorCount++;console.error("Erro no loop do jogo:",err);
@@ -1195,7 +1195,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.10.6] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.10.7] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
@@ -2809,24 +2809,42 @@ function mazeNpcInit(p,index){
 
 function mazeNpcRace(p,dt){
  if(!p||p.mazeFinished||!MAZE.started||MAZE.finished)return;
+ if(!Number.isFinite(dt)||dt<=0)return;
+
  const ex=C.width*.94,ey=C.height*.08;
- const speed=(55+(p.challenge||50)*.30)*dt;
+ const skill=Math.max(.7,Math.min(1.2,((p.challenge||50)/100)+.65));
+ const speed=(48+38*skill)*dt;
+
+ // Direção principal para a saída + opções de desvio.
  const base=Math.atan2(ey-p.y,ex-p.x);
- const offsets=[0,.45,-.45,.9,-.9,1.35,-1.35,Math.PI];
+ const offsets=[0,.35,-.35,.7,-.7,1.1,-1.1,1.55,-1.55,Math.PI];
+
  let moved=false;
  for(const off of offsets){
-   const ang=base+off+(Math.random()-.5)*.12;
+   const ang=base+off+(Math.random()-.5)*.08;
    const nx=p.x+Math.cos(ang)*speed;
    const ny=p.y+Math.sin(ang)*speed;
+
    if(mazeWalkableCanvas(nx,ny,4)){
-     p.x=nx;p.y=ny;moved=true;break
+     p.x=nx;
+     p.y=ny;
+     moved=true;
+     break
    }
  }
+
+ // Se ficou preso, tenta escapar aleatoriamente.
  if(!moved){
-   const ang=Math.random()*Math.PI*2;
-   const nx=p.x+Math.cos(ang)*speed*.7,ny=p.y+Math.sin(ang)*speed*.7;
-   if(mazeWalkableCanvas(nx,ny,4)){p.x=nx;p.y=ny}
+   for(let i=0;i<8;i++){
+     const ang=Math.random()*Math.PI*2;
+     const nx=p.x+Math.cos(ang)*speed*.9;
+     const ny=p.y+Math.sin(ang)*speed*.9;
+     if(mazeWalkableCanvas(nx,ny,4)){
+       p.x=nx;p.y=ny;moved=true;break
+     }
+   }
  }
+
  mazeProgressOf(p);
  if(mazeNearExit(p))mazeFinishParticipant(p)
 }
@@ -2937,7 +2955,7 @@ function mazeEnter(){
    MAZE.progress.set(p,0)
  });
 
- eventLog("🧩 Todos posicionados. Prepare-se para a largada!",8);
+ eventLog("🧩 Todos posicionados. Prepare-se para a largada!",5);
  addFeed("⏱️ O cronômetro de 4:00 começa após a contagem regressiva.");
 }
 
@@ -3221,11 +3239,6 @@ function mazeDraw(){
 function mazeStartChallenge(){
  if(MAZE.active)return;
 
- if(!MAZE.mapReady||!MAZE.maskReady){
-  eventLog("🧩 Carregando arena do Labirinto...",6);
-  return setTimeout(mazeStartChallenge,300)
- }
-
  let launched=false;
  const launch=()=>{
    if(launched||MAZE.active)return;
@@ -3234,54 +3247,27 @@ function mazeStartChallenge(){
    mazeEnter()
  };
 
- modal("🧩 PROVA DO LÍDER — LABIRINTO",
-   "Todos os participantes irão para a arena.\n\n🏁 Há uma contagem regressiva antes da largada.\n🧩 Encontre a SAÍDA antes dos outros.\n⏱️ Vocês têm 4 minutos.\n📊 A posição dos cinco primeiros aparece durante a corrida.\n\nSe ninguém chegar, todos perdem a prova.",
-   ["IR PARA A ARENA"],
-   choice=>{
-     // O sistema de modal passa o texto da opção escolhida.
-     if(!choice||choice==="IR PARA A ARENA")launch()
-   });
+ // Se os assets já carregaram, entra imediatamente.
+ if(MAZE.mapReady&&MAZE.maskReady){
+   return launch()
+ }
 
- // Fallback defensivo: alguns layouts antigos do modal sobrescrevem onclick.
- // Reaplica o clique diretamente nos botões gerados.
- setTimeout(()=>{
-   const choices=document.querySelector("#choices");
-   if(!choices)return;
-   [...choices.querySelectorAll("button")].forEach(btn=>{
-     if((btn.textContent||"").trim()==="IR PARA A ARENA"){
-       btn.onclick=ev=>{
-         ev.preventDefault();
-         ev.stopPropagation();
-         launch()
-       }
-     }
-   })
- },0);
+ eventLog("🧩 Preparando arena...",4);
 
- // Tecla Enter também inicia, evitando soft-lock por UI.
- const enterHandler=ev=>{
-   if(!launched && !MAZE.active && ev.key==="Enter"){
-     document.removeEventListener("keydown",enterHandler);
-     launch()
+ // Aguarda no máximo 1,2s pelos assets.
+ const startedAt=performance.now();
+ const wait=()=>{
+   if(MAZE.mapReady&&MAZE.maskReady)return launch();
+
+   if(performance.now()-startedAt>1200){
+     // Não deixa a partida presa no loading.
+     addFeed("⚠️ A arena demorou para carregar. Tentando iniciar mesmo assim.");
+     return launch()
    }
+   setTimeout(wait,80)
  };
- document.addEventListener("keydown",enterHandler);
-
- // Safety timeout: se o modal ficar aberto por falha de DOM, não trava a partida para sempre.
- setTimeout(()=>{
-   if(!launched && !MAZE.active){
-     const modalEl=document.querySelector("#modal");
-     const stillOpen=modalEl && !modalEl.classList.contains("hidden");
-     if(stillOpen){
-       addFeed("⚠️ O botão da arena não respondeu. Iniciando a prova automaticamente.");
-       launch()
-     }
-   }
- },12000)
+ wait()
 }
-
-let mazeWatchdogRaf=0;
-let mazeWatchdogLast=0;
 
 function mazeWatchdogFrame(now){
  mazeWatchdogRaf=requestAnimationFrame(mazeWatchdogFrame);
