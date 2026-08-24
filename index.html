@@ -1,4 +1,4 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Casa em Jogo — V1.7.1</title><link rel="stylesheet" href="style.css"></head><body>
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Casa em Jogo — V1.8.0</title><link rel="stylesheet" href="style.css"></head><body>
 <section id="start" class="screen active">
   <div class="landing-noise"></div>
   <div class="landing-glow glow-a"></div>
@@ -10,7 +10,7 @@
         <span class="live-dot"></span>
         <div><b>CASA EM JOGO</b><small>REALITY SIMULATION</small></div>
       </div>
-      <div class="landing-season">TEMPORADA 01 <span>•</span> V1.7</div>
+      <div class="landing-season">TEMPORADA 01 <span>•</span> V1.8</div>
     </header>
 
     <section class="landing-grid">
@@ -78,6 +78,13 @@
   <strong id="broadcastTitle">CONVIVÊNCIA</strong>
   <span id="broadcastClock">Explore a casa</span>
 </div>
+
+<div id="objectiveCard">
+  <small>OBJETIVO DO DIA</small>
+  <strong id="objectiveText">Explore a casa</strong>
+  <div class="objectiveTrack"><i id="objectiveFill"></i></div>
+  <span id="objectiveProgress">0 / 1</span>
+</div>
 <div id="interactionDock" class="interaction-dock hidden">
   <div><small>PERTO DE VOCÊ</small><b id="interactionName">Participante</b><span id="interactionMeta"></span></div>
   <div class="interactionKeys"><kbd>E</kbd> conversar <kbd>F</kbd> interagir</div>
@@ -92,11 +99,14 @@
 </section>
 <canvas id="canvas" width="1024" height="572"></canvas><div id="dayOverlay"></div><div id="topHud"><div class="hudchip energy">⚡ <span>ENERGIA</span><b id="energy">100</b></div><div class="hudchip social">🤝 <span>SOCIAL</span><b id="social">50</b></div><div class="hudchip rep">⭐ <span>REPUTAÇÃO</span><b id="rep">50</b></div><div class="hudchip coins">🪙 <span>MOEDAS</span><b id="coins">500</b></div></div><div id="roomBadge">SALA</div><div id="missionBadge" class="mission-badge">🎯 <span id="missionShort">Missão: carregando...</span></div><div id="prompt">WASD/setas • SHIFT correr • E conversar • F interagir • H mapa de colisões</div></main>
 <aside><header class="aside-head"><div><h2>CASA EM JOGO</h2><span>TEMPORADA 1</span></div><div id="dayLabel" class="day-label">DIA 1 ☀️</div></header><div class="status"><div class="status-top"><b id="round">RODADA 1</b><strong id="timer">01:10</strong></div><small id="event">Convivência</small><div class="buttons"><button id="musicBtn">♫ Música ON</button><button id="gossipBtn">📺 Fofocas</button><button id="relBtn">🤝 Relações</button><button id="powersBtn">⚡ Poderes</button><button id="missionsBtn">🎯 Missões</button><button id="weekBtn" type="button">📅 Semana</button>
-<button id="profileBtn">🏅 Perfil</button><button id="collisionBtn">🧱 Colisão</button><button id="npcDebugBtn">🤖 IA NPC</button></div></div><div class="side-section-title"><span>PARTICIPANTES</span><small>clique duas vezes no personagem no mapa para ver perfil</small></div>
+<button id="profileBtn">🏅 Perfil</button><button id="collisionBtn">🧱 Colisão</button><button id="npcDebugBtn">🤖 IA NPC</button>
+<button id="riskBtn" type="button">🎯 Risco</button>
+<button id="diaryBtn" type="button">📓 Meu jogo</button>
+</div></div><div class="side-section-title"><span>PARTICIPANTES</span><small>clique duas vezes no personagem no mapa para ver perfil</small></div>
 <div id="players"></div>
 <div class="side-section-title feed-title"><span>ÚLTIMOS ACONTECIMENTOS</span><button id="sideHistoryBtn" type="button">histórico</button></div>
 <div id="feed"></div></aside></section>
 <div id="modal" class="modal hidden"><div class="panel"><i></i><button id="modalClose" class="modal-close">×</button><h2 id="modalTitle"></h2><p id="modalText"></p><div id="choices"></div></div></div>
 <div id="dialogue" class="dialogue hidden"><div id="portrait" class="portrait"><img id="portraitImg" src="assets/portraits/luna.png"></div><div class="dialogue-main"><div id="speaker" class="speaker">Luna</div><div id="dialogueText" class="dialogue-text"></div><div id="dialogueChoices" class="dialogue-choices"></div><div id="dialogueHint" class="dialogue-hint">ESPAÇO para continuar</div></div></div>
-<div id="npcBubble" class="npcbubble hidden"></div><div id="toast" class="toast hidden"></div><script>window.addEventListener("error",e=>console.error("[Casa em Jogo] erro global:",e.error||e.message));</script><script src="game.js"></script><div id="realityVersion" style="position:fixed;right:12px;bottom:8px;opacity:.45;font:11px monospace;pointer-events:none">LIVING HOUSE • V1.7.1</div>
+<div id="npcBubble" class="npcbubble hidden"></div><div id="toast" class="toast hidden"></div><script>window.addEventListener("error",e=>console.error("[Casa em Jogo] erro global:",e.error||e.message));</script><script src="game.js"></script><div id="realityVersion" style="position:fixed;right:12px;bottom:8px;opacity:.45;font:11px monospace;pointer-events:none">LIVING HOUSE • V1.8.0</div>
 </body></html>

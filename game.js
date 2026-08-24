@@ -568,7 +568,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.7.1");
+ toast("CASA EM JOGO • V1.8.0");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -615,6 +615,7 @@ function modalOpen(){return !document.querySelector("#modal").classList.contains
 function uiBlocking(){return dialogueOpen||modalOpen()}
 function update(dt){
  updateWeekFlow(dt);
+ gpRoomTick(dt);
  if(typeof LIVING!=="undefined")livingTick(dt);
  if(typeof REALITY!=="undefined")realityTick(dt);
 
@@ -1192,7 +1193,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.7.1] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.8.0] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
@@ -1240,6 +1241,15 @@ function ui(){if(!me)return;normalizeStats();document.querySelector("#energy").t
    }else{
      dock.classList.add("hidden")
    }
+ }
+
+ const ot=document.querySelector("#objectiveText");
+ const op=document.querySelector("#objectiveProgress");
+ const of=document.querySelector("#objectiveFill");
+ if(ot&&GAMEPLAY.objective){
+   ot.textContent=GAMEPLAY.objectiveDone?"Objetivo concluído!":GAMEPLAY.objective.text;
+   if(op)op.textContent=`${Math.min(GAMEPLAY.objectiveProgress,GAMEPLAY.objectiveGoal)} / ${GAMEPLAY.objectiveGoal}`;
+   if(of)of.style.width=`${Math.min(100,(GAMEPLAY.objectiveProgress/GAMEPLAY.objectiveGoal)*100)}%`;
  }
 }
 function alivePeople(){return people.filter(p=>p.alive)}
@@ -1485,6 +1495,7 @@ function showtimeStartNextDay(){
 
  REALITY.phase="Convivência";
  realityMiniObjective();
+ gpDailyReset();
  realityHistory(`🌅 Começou o Dia ${REALITY.day}.`);
  eventLog(`🌅 DIA ${REALITY.day}: nova convivência. A próxima Prova do Líder será em 70 segundos.`,10)
 }
@@ -1565,6 +1576,7 @@ function startWeekFlow(){
  REALITY.phase="Convivência";
  realityHistory("A temporada começou. A casa terá um período de convivência antes da primeira prova.");
  realityMiniObjective();
+ gpDailyReset();
  eventLog("🏠 CONVIVÊNCIA: explore a casa, converse e observe os participantes.",10);
 }
 
@@ -1605,7 +1617,8 @@ function beginInteractiveChallenge(type="lider"){
 
 function launchPlayerChallenge(type){
  const startedAt=performance.now();
- const ideal=1000+rnd(900,2200);
+ const traitBonus=trait==="Competitivo"?140:0;
+ const ideal=1200+rnd(900,2400);
  let finished=false;
 
  const finish=()=>{
@@ -1613,25 +1626,22 @@ function launchPlayerChallenge(type){
    finished=true;
    const elapsed=performance.now()-startedAt;
    const error=Math.abs(elapsed-ideal);
-   const playerScore=Math.max(0,118-(error/18)+rnd(-4,4));
+   const accuracy=Math.max(0,100-error/28);
+   const playerScore=Math.max(0,accuracy+traitBonus/10+rnd(-3,3));
    resolveInteractiveChallenge(type,playerScore,error)
  };
 
- modal(type==="lider"?"⏱️ TESTE DE TEMPO":"✨ TESTE DE PRECISÃO",
-   `Clique em PARAR no momento certo.\n\nQuanto mais perto do tempo secreto, maior sua pontuação.\n\nSua tentativa está valendo...`,
-   ["PARAR"],finish);
+ modal(type==="lider"?"👑 PROVA DO LÍDER":"😇 PROVA DO ANJO",
+   `TESTE DE TEMPO\n\nO alvo secreto está entre 2,1 e 3,6 segundos.\nClique em PARAR quando achar que chegou no ponto certo.\n\n🏆 Competitivo recebe um pequeno bônus.\n\nSua tentativa começou agora.`,
+   ["⏱️ PARAR"],finish);
 
- // não resolve sozinho rápido: dá até 8s para o player agir
  setTimeout(()=>{
    if(!finished){
-     const elapsed=performance.now()-startedAt;
-     const error=Math.abs(elapsed-ideal)+450;
-     const playerScore=Math.max(0,90-(error/22));
      finished=true;
      closeModal();
-     resolveInteractiveChallenge(type,playerScore,error)
+     resolveInteractiveChallenge(type,0,9999)
    }
- },8000)
+ },7000)
 }
 
 function resolveInteractiveChallenge(type,playerScore,error){
@@ -1737,6 +1747,185 @@ const REALITY={
  memories:new Map(),
  gossipLog:[]
 };
+
+
+// ============================================================
+// V1.8 — GAMEPLAY 2.0
+// ============================================================
+const GAMEPLAY={
+ objective:null,
+ objectiveProgress:0,
+ objectiveGoal:1,
+ objectiveReward:0,
+ objectiveDone:false,
+ socialActions:new Map(),
+ nominations:new Set(),
+ playerDiary:[],
+ lastRoom:"",
+ roomStay:0,
+ powerCooldown:0
+};
+
+function gpAlive(){return realityAlive()}
+function gpNPCs(){return gpAlive().filter(p=>!p.human)}
+
+function gpSetObjective(){
+ const pool=[
+  {id:"talk",text:"Converse com 2 participantes diferentes",goal:2,reward:45},
+  {id:"rooms",text:"Visite 3 cômodos diferentes",goal:3,reward:35},
+  {id:"gossip",text:"Descubra ou espalhe uma fofoca",goal:1,reward:40},
+  {id:"bond",text:"Melhore uma relação importante",goal:1,reward:45},
+  {id:"strategy",text:"Faça uma conversa estratégica",goal:1,reward:50}
+ ];
+ const o=pick(pool);
+ GAMEPLAY.objective=o;
+ GAMEPLAY.objectiveProgress=0;
+ GAMEPLAY.objectiveGoal=o.goal;
+ GAMEPLAY.objectiveReward=o.reward;
+ GAMEPLAY.objectiveDone=false;
+ GAMEPLAY._objectiveKeys=new Set();
+ addFeed(`🎯 OBJETIVO: ${o.text} (+${o.reward} moedas)`);
+}
+
+function gpObjectiveStep(kind,key=""){
+ const o=GAMEPLAY.objective;
+ if(!o||GAMEPLAY.objectiveDone||o.id!==kind)return;
+ const uniqueKey=key||`${kind}-${GAMEPLAY.objectiveProgress}`;
+ if(GAMEPLAY._objectiveKeys.has(uniqueKey))return;
+ GAMEPLAY._objectiveKeys.add(uniqueKey);
+ GAMEPLAY.objectiveProgress++;
+ if(GAMEPLAY.objectiveProgress>=GAMEPLAY.objectiveGoal){
+   GAMEPLAY.objectiveDone=true;
+   stats.coins+=GAMEPLAY.objectiveReward;
+   stats.rep=Math.min(100,stats.rep+3);
+   addFeed(`✅ OBJETIVO CONCLUÍDO: +${GAMEPLAY.objectiveReward} moedas e +3 reputação.`);
+   if(typeof toast==="function")toast("🎯 Objetivo concluído!")
+ }
+}
+
+function gpDiary(text){
+ GAMEPLAY.playerDiary.unshift(`Dia ${REALITY.day}: ${text}`);
+ GAMEPLAY.playerDiary=GAMEPLAY.playerDiary.slice(0,16)
+}
+
+function gpRelationshipState(p){
+ if(!p)return "desconhecido";
+ const rel=realityRel(me,p);
+ if(rel>=55)return "aliado";
+ if(rel>=25)return "próximo";
+ if(rel<=-45)return "rival";
+ if(rel<=-18)return "tenso";
+ return "neutro"
+}
+
+function gpSocialAction(p,type){
+ if(!p||p===me)return;
+ const key=`${REALITY.day}:${p.name}:${type}`;
+ if(GAMEPLAY.socialActions.has(key)){
+   return toast?.("Essa interação já foi usada com essa pessoa hoje.")
+ }
+ GAMEPLAY.socialActions.set(key,true);
+
+ if(type==="elogiar"){
+   realityChangeRel(me,p,8);
+   changeRel?.(p.name,7,5,1);
+   stats.social=Math.min(100,stats.social+3);
+   livingSetMood?.(p,"😊",`${me.name} me elogiou.`);
+   livingThought?.(p,`${me.name} foi legal comigo.`);
+   addFeed(`💚 ${me.name} elogiou ${p.name}.`);
+   gpObjectiveStep("bond",p.name);
+   gpDiary(`me aproximei de ${p.name}.`)
+ }else if(type==="estrategia"){
+   const target=pick(gpAlive().filter(x=>x!==me&&x!==p));
+   realityChangeRel(me,p,4);
+   if(target)realityChangeRel(p,target,-2);
+   addFeed(`🧠 ${me.name} e ${p.name} conversaram sobre estratégia${target?` e citaram ${target.name}`:""}.`);
+   gpObjectiveStep("strategy",p.name);
+   gpDiary(`falei de estratégia com ${p.name}.`)
+ }else if(type==="fofoca"){
+   const target=pick(gpAlive().filter(x=>x!==me&&x!==p));
+   if(target){
+     realityChangeRel(p,target,-6);
+     realityChangeRel(me,p,2);
+     livingThought?.(p,`Será que é verdade o que ${me.name} disse sobre ${target.name}?`);
+     addFeed(`🗣️ ${me.name} contou uma fofoca sobre ${target.name} para ${p.name}.`);
+     gpObjectiveStep("gossip",target.name);
+     gpDiary(`espalhei uma fofoca sobre ${target.name} para ${p.name}.`)
+   }
+ }else if(type==="confrontar"){
+   realityChangeRel(me,p,-12);
+   stats.rep=Math.max(0,stats.rep-2);
+   livingSetMood?.(p,"😠",`${me.name} me confrontou.`);
+   livingReactToDrama?.(me,p);
+   addFeed(`🔥 ${me.name} confrontou ${p.name} na frente da casa.`);
+   gpDiary(`tive um confronto com ${p.name}.`)
+ }
+ gpObjectiveStep("talk",p.name)
+}
+
+function gpOpenInteraction(p){
+ if(!p||!p.alive)return;
+ const rel=realityRel(me,p);
+ const state=gpRelationshipState(p);
+ modal(`💬 ${p.name}`,
+   `${livingMood?.(p)||"🙂"} ${p.name}\nRelação: ${state} (${rel>0?"+":""}${rel})\nAgora: ${livingActionFor?.(p)||p.activity||"pela casa"}\n\nO que você quer fazer?`,
+   ["💚 Elogiar","🧠 Estratégia","🗣️ Fofocar","🔥 Confrontar","Cancelar"],
+   choice=>{
+     closeModal();
+     if(choice==="💚 Elogiar")gpSocialAction(p,"elogiar");
+     else if(choice==="🧠 Estratégia")gpSocialAction(p,"estrategia");
+     else if(choice==="🗣️ Fofocar")gpSocialAction(p,"fofoca");
+     else if(choice==="🔥 Confrontar")gpSocialAction(p,"confrontar")
+   })
+}
+
+function gpRoomTick(dt){
+ if(!gameStarted||!me)return;
+ const room=roomAt(me.x,me.y);
+ if(room!==GAMEPLAY.lastRoom){
+   GAMEPLAY.lastRoom=room;
+   GAMEPLAY.roomStay=0;
+   if(room){
+     gpObjectiveStep("rooms",room);
+     if(Math.random()<.25)addFeed(`📍 ${me.name} entrou em ${room}.`)
+   }
+ }else GAMEPLAY.roomStay+=dt;
+}
+
+function gpRiskBoard(){
+ const alive=gpAlive().filter(p=>p!==REALITY.leader);
+ const ranked=alive.map(p=>{
+   let risk=showtimeThreatScore(p);
+   if(p===me)risk+=Math.max(0,50-stats.rep)*.4;
+   if(REALITY.immune.has(realityPersonKey(p)))risk-=50;
+   return {p,risk}
+ }).sort((a,b)=>b.risk-a.risk).slice(0,4);
+
+ modal("🎯 TERMÔMETRO DA CASA",
+   ranked.map((x,i)=>`${i+1}. ${x.p.name} — ${x.risk>55?"🔴 alto":x.risk>35?"🟡 médio":"🟢 baixo"}`).join("\n")+
+   "\n\nÉ uma leitura aproximada da casa, não revela votos secretos.",
+   ["FECHAR"],closeModal)
+}
+
+function gpDiaryModal(){
+ const rels=gpNPCs().map(p=>({p,r:realityRel(me,p)})).sort((a,b)=>b.r-a);
+ const closest=rels[0], rival=rels[rels.length-1];
+ modal("📓 MEU JOGO",
+   `Dia ${REALITY.day}\n\n`+
+   `🤝 Mais próximo: ${closest?`${closest.p.name} (${closest.r})`:"—"}\n`+
+   `⚡ Maior tensão: ${rival?`${rival.p.name} (${rival.r})`:"—"}\n`+
+   `⭐ Reputação: ${Math.round(stats.rep)}\n`+
+   `💬 Social: ${Math.round(stats.social)}\n`+
+   `💰 Moedas: ${Math.round(stats.coins)}\n\n`+
+   `ÚLTIMAS DECISÕES\n${GAMEPLAY.playerDiary.length?GAMEPLAY.playerDiary.slice(0,8).join("\n"):"Nenhuma decisão importante ainda."}`,
+   ["FECHAR"],closeModal)
+}
+
+function gpDailyReset(){
+ GAMEPLAY.socialActions.clear();
+ GAMEPLAY._objectiveKeys=new Set();
+ gpSetObjective()
+}
 
 function realityPersonKey(p){return p?.name||"Participante"}
 function realityAlive(){return people.filter(p=>p.alive!==false&&!p.eliminated)}
@@ -2375,12 +2564,34 @@ function livingHouseAnnouncement(){
  addFeed(pick(lines)||"📢 Produção chamou a atenção da casa.")
 }
 
+
+function gpNpcStrategyTick(){
+ if(!gameStarted)return;
+ const npcs=gpNPCs();
+ if(npcs.length<2)return;
+
+ const phaseNow=WEEKFLOW.phase;
+ if(phaseNow==="strategy"){
+   const a=pick(npcs), b=pick(npcs.filter(x=>x!==a));
+   if(!a||!b)return;
+   const target=pick(gpAlive().filter(x=>x!==a&&x!==b));
+   livingSetAction(a,"articulando voto",10);
+   livingSetAction(b,"ouvindo estratégia",10);
+   realityChangeRel(a,b,3);
+   if(target&&Math.random()<.65)realityChangeRel(a,target,-3);
+   addFeed(`🧠 ${a.name} puxou ${b.name} para uma conversa estratégica${target?` sobre ${target.name}`:""}.`)
+ }else if(phaseNow==="convivencia"&&Math.random()<.65){
+   livingGroupChat()
+ }
+}
+
 function livingTick(dt){
  LIVING._clock=(LIVING._clock||0)+dt;
  LIVING._actionClock=(LIVING._actionClock||0)+dt;
  LIVING._eventClock=(LIVING._eventClock||0)+dt;
  LIVING._routineClock=(LIVING._routineClock||0)+dt;
  LIVING._announceClock=(LIVING._announceClock||0)+dt;
+ LIVING._gpStrategyClock=(LIVING._gpStrategyClock||0)+dt;
 
  if(LIVING._actionClock>11){
    LIVING._actionClock=0;
@@ -2411,6 +2622,11 @@ function livingTick(dt){
  if(LIVING._announceClock>50){
    LIVING._announceClock=0;
    if(Math.random()<.55)livingHouseAnnouncement()
+ }
+
+ if(LIVING._gpStrategyClock>18){
+   LIVING._gpStrategyClock=0;
+   if(Math.random()<.55)gpNpcStrategyTick()
  }
 }
 
@@ -2455,4 +2671,11 @@ setTimeout(()=>{
 setTimeout(()=>{
  const sh=document.querySelector("#sideHistoryBtn");
  if(sh)sh.onclick=()=>showSeasonHistory()
+},0);
+
+setTimeout(()=>{
+ const rb=document.querySelector("#riskBtn");
+ if(rb)rb.onclick=()=>gpRiskBoard();
+ const db=document.querySelector("#diaryBtn");
+ if(db)db.onclick=()=>gpDiaryModal();
 },0);
