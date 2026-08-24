@@ -1,6 +1,6 @@
 // Estados globais que precisam existir antes de qualquer callback/evento.
 var keys = Object.create(null);
-var NAV_STEP = 6;
+var NAV_STEP = 5;
 const C=document.querySelector("#canvas"),ctx=C.getContext("2d");
 ctx.imageSmoothingEnabled=false;
 const SPRITES={};
@@ -34,22 +34,26 @@ const MISSIONS=[{id:"talk3",text:"Converse com 3 participantes diferentes",goal:
 
 const FLOOR_RECTS=[
 
- {room:"DESPENSA",x:51,y:31,w:258,h:168},
- {room:"COZINHA",x:51,y:229,w:258,h:386},
- {room:"PASSAGEM COZINHA/SALA",x:296,y:316,w:75,h:88},
- {room:"SALA",x:353,y:126,w:269,h:347},
- {room:"PASSAGEM SALA/HALL",x:353,y:452,w:269,h:38},
- {room:"HALL",x:351,y:471,w:272,h:146},
- {room:"HALL",x:313,y:582,w:348,h:56},
- {room:"PASSAGEM COZINHA/PÁTIO",x:165,y:604,w:78,h:35},
- {room:"PÁTIO / PISCINA",x:27,y:619,w:576,h:146},
- {room:"QUARTO",x:646,y:25,w:332,h:298},
- {room:"PASSAGEM QUARTO/CORREDOR",x:724,y:292,w:82,h:52},
- {room:"CORREDOR",x:622,y:324,w:237,h:144},
- {room:"PASSAGEM CORREDOR/LOUNGE",x:638,y:452,w:130,h:52},
- {room:"LOUNGE",x:643,y:487,w:133,h:254},
- {room:"PASSAGEM LOUNGE/CONFESSIONÁRIO",x:764,y:634,w:38,h:88},
- {room:"CONFESSIONÁRIO",x:786,y:491,w:201,h:250}
+ {room:"DESPENSA",x:40,y:25,w:270,h:178},
+ {room:"COZINHA",x:38,y:220,w:275,h:397},
+ {room:"PASSAGEM COZINHA/SALA",x:292,y:300,w:88,h:170},
+
+ {room:"SALA",x:340,y:116,w:286,h:370},
+ {room:"PASSAGEM SALA/HALL",x:340,y:438,w:286,h:66},
+
+ {room:"HALL",x:338,y:466,w:290,h:160},
+ {room:"HALL",x:300,y:570,w:370,h:72},
+ {room:"PASSAGEM COZINHA/PÁTIO",x:150,y:590,w:105,h:58},
+ {room:"PÁTIO / PISCINA",x:16,y:610,w:590,h:155},
+
+ {room:"QUARTO",x:632,y:20,w:350,h:305},
+ {room:"PASSAGEM QUARTO/CORREDOR",x:700,y:286,w:160,h:74},
+ {room:"CORREDOR",x:610,y:310,w:270,h:170},
+
+ {room:"PASSAGEM CORREDOR/LOUNGE",x:620,y:440,w:170,h:75},
+ {room:"LOUNGE",x:625,y:475,w:165,h:272},
+ {room:"PASSAGEM LOUNGE/CONFESSIONÁRIO",x:750,y:620,w:75,h:120},
+ {room:"CONFESSIONÁRIO",x:775,y:480,w:215,h:270}
 
 ];
 
@@ -57,17 +61,48 @@ const FLOOR_RECTS=[
 // playerRadius é aplicado de forma circular, então não precisa "engordar" os retângulos.
 const SOLIDS=[
 
- [72,68,49,95],[123,62,109,63],[236,52,48,109],[75,164,190,31],
- [75,262,191,65],[249,264,38,96],[55,421,37,167],[263,405,26,183],
- [137,387,86,150],[116,404,18,132],[226,402,18,134],[154,537,25,40],[204,537,25,40],[253,562,33,47],
- [445,312,126,128],[451,338,78,59],[444,445,131,39],
- [362,490,58,63],[548,490,54,63],[320,588,47,49],[575,588,44,49],
- [75,633,73,104],[112,687,482,78],[367,630,70,66],[506,630,75,70],
- [667,47,76,115],[755,46,62,73],[828,47,75,113],[910,47,48,113],
- [676,198,88,91],[805,196,84,95],[899,197,59,94],[739,185,90,94],
- [622,326,80,42],[787,324,47,143],[835,327,24,140],
- [659,510,59,68],[658,610,55,101],[724,518,35,118],
- [804,514,164,55],[863,600,43,117]
+ // despensa
+ [55,55,48,108],[107,62,105,58],[218,48,66,115],[72,161,180,28],
+
+ // cozinha - bancadas externas
+ [45,250,52,145],[96,248,166,66],[251,248,45,120],
+ [43,420,42,160],[265,420,30,160],
+ // ilha: menor e precisa, permitindo andar nas duas laterais marcadas
+ [125,385,112,151],
+ [146,535,34,36],[196,535,34,36],
+
+ // sala - sofá/mesa, sem bloquear faixa inferior e laterais
+ [444,307,119,117],
+ [453,344,72,50],
+ // estante inferior da sala (objeto real)
+ [446,446,126,30],
+
+ // hall - estantes laterais, corredor central livre
+ [350,486,70,68],[548,486,61,68],
+ [315,588,48,42],[576,588,42,42],
+
+ // pátio/piscina/espreguiçadeiras
+ [70,630,80,105],[110,690,480,75],
+ [365,635,72,58],[505,635,76,58],
+
+ // quarto: camas/malas, corredor horizontal e vertical central livres
+ [650,45,80,118],[837,45,73,118],[916,45,48,118],
+ [665,200,82,84],[823,199,73,86],[907,199,51,86],
+ [748,52,70,68],
+ // malas centrais menores
+ [700,207,56,69],[800,205,45,74],
+
+ // corredor: bloco preto à direita é parede, mas deixa a passagem desenhada na base
+ [838,326,22,115],
+
+ // lounge: sofás encostados nas laterais, miolo vertical livre
+ [646,510,45,66],[646,605,45,104],
+ [724,515,31,77],[724,615,31,70],
+
+ // confessionário: móveis laterais + câmera/cadeira centrais com circulação ao redor
+ [792,505,178,50],
+ [800,558,32,170],[940,558,30,170],
+ [858,608,46,112]
 
 ];
 
@@ -86,7 +121,7 @@ const DOOR_LANES=[];
 
 
 
-const PLAYER_RADIUS=10;
+const PLAYER_RADIUS=7;
 let collisionDebug=false;
 
 function rawFloorPoint(x,y){
@@ -491,7 +526,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.3.3");
+ toast("CASA EM JOGO • V1.3.4");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -1057,7 +1092,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.3.3] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.3.4] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
