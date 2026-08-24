@@ -1,41 +1,65 @@
-CASA EM JOGO — V1.2.2 DEEP AUDIT
+CASA EM JOGO — V1.2.4 — 50/50 FINAL
 
-REVISÃO DE BUGS MAIS PROFUNDA
+Esta é a rodada final de 50 verificações após corrigir os bugs encontrados nas tentativas anteriores.
 
-CORREÇÕES DE ROBUSTEZ
-- modais agora aceitam choices/callback ausentes sem quebrar
-- closeModal limpa escolhas antigas
-- closeDialogue valida elementos antes de usar
-- typeDialogue força texto para string
-- showDialogue valida choices
-- advanceDialogue tolera DOM ausente
-- final protege winner nulo
-- resolve protege prova sem participantes válidos
-- randomEvent garante gossips como array
-- UI protege relationship/nome de NPC
-- stats se recupera se objeto for corrompido
-- updateBots recupera path/pathIndex inválidos
-- findPath valida coordenadas e maxNodes
-- safePoint protege pick nulo
-- npcSocialTick protege outro NPC nulo
-- chooseNpcDestination tem atividade fallback
-- showNpcDebug exige partida iniciada
-- addFeed e toast ficaram defensivos
-- showRelationships/Powers/Mission ficaram seguros antes da partida
-- runtime audit ampliado para posições dos personagens
+RESULTADOS
+01. OK — index existe
+02. OK — css existe
+03. OK — game.js existe
+04. OK — mapa existe
+05. OK — mapa 1024x765 — (1024, 765)
+06. OK — 8 sprites — 8
+07. OK — 8 retratos — 8
+08. OK — sprites válidos
+09. OK — retratos válidos
+10. OK — sintaxe JS — OK
+11. OK — sem funções duplicadas — []
+12. OK — keys único
+13. OK — NAV_STEP único
+14. OK — sem dist()
+15. OK — sem autochamada x=x()
+16. OK — DOM IDs — []
+17. OK — handlers definidos — []
+18. OK — closeModal existe
+19. OK — showNpcDebug existe
+20. OK — reachablePointFor existe
+21. OK — game.js no HTML
+22. OK — map path correto
+23. OK — start guard
+24. OK — loop único
+25. OK — loop trycatch
+26. OK — update único
+27. OK — updateBots único
+28. OK — findPath único
+29. OK — tryMovePlayer existe
+30. OK — blockingActor existe
+31. OK — findNear Math.hypot
+32. OK — modal robusto
+33. OK — dialogue robusto
+34. OK — randomEvent robusto
+35. OK — stats robusto
+36. OK — voto guard
+37. OK — final guard
+38. OK — portal guard
+39. OK — path state guard
+40. OK — cooldown ação
+41. OK — storage trycatch
+42. OK — audio trycatch
+43. OK — sem rede externa
+44. OK — sem path absoluto
+45. OK — runtime audit existe
+46. OK — selftest usa reachablePointFor
+47. OK — safePoint único
+48. OK — pick vazio protegido
+49. OK — canvas 1024x765
+50. OK — runtime + selftest + audit limpos — [Casa em Jogo] cenário carregado: [33m1024[39m [33m765[39m
+[Casa em Jogo] script inicializado
+[Casa em Jogo V1.2.4] autoteste: OK
+[Casa em Jogo] runtime audit: OK
+[Casa em Jogo] runtime audit: OK
+[Casa em Jogo V1.2.4] autoteste: OK
+{"gameStarted":true,"people":8,"bots":7,"audit":[],"self":[],"x":405,"y":286,"botStates":[{"x":570.4670622766115,"y":300.99540466616776,"path":true},{"x":109.57870855611368,"y":555.4777543156547,"path":true},{"x":509.814961680707,"y":515.7824942975905,"path":true},{"x":191.9323917177603,"y":664.0433551210365,"path":true},{"x":795.826348447084,"y":131.6692447132271,"path":true},{"x":696.9600217951605,"y":599.6098881123893,"path":true},{"x":436.2607100801806,"y":217.45531263558468,"path":true}]}
 
-AUDITORIA AUTOMÁTICA
-- node --check: OK (2 passadas)
-- funções duplicadas: 0
-- autochamadas inválidas tipo let x=x(...): 0
-- chamadas dist(...): 0
-- keys: 1 declaração
-- NAV_STEP: 1 declaração
-- IDs DOM ausentes: 0
-- sprites: 8
-- retratos: 8
-- cenário presente
-- funções críticas únicas: OK
-
-PONTOS DE PICK + .name SINALIZADOS PARA REVISÃO MANUAL
-- linha 609: `Ei, ${me.name}. ${pick(sayings)}`,
+RESULTADO FINAL: 50/50 PASSARAM.
+runRuntimeAudit(): vazio
+runSelfTest(): vazio

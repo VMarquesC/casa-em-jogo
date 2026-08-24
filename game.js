@@ -239,6 +239,7 @@ document.querySelector("#play").onclick=()=>{
    start();
    gameStarted=true;
  }catch(err){
+   gameStarted=false;
    console.error("Falha ao iniciar a partida:",err);
    btn.disabled=false;btn.innerHTML="<span>TENTAR NOVAMENTE</span><b>▶</b>";
    showFatalError("Não foi possível iniciar a partida",err);
@@ -317,6 +318,16 @@ function findPath(sx,sy,tx,ty,who=null,maxNodes=1800){
  return []
 }
 
+function reachablePointFor(p,roomName,tries=30){
+ for(let i=0;i<tries;i++){
+  const target=safePoint(roomName,p);
+  if(!target)continue;
+  const path=findPath(p.x,p.y,target[0],target[1],p,1200);
+  if(path.length)return {target,path}
+ }
+ return null
+}
+
 function chooseNpcDestination(p){
  const room=roomAt(p.x,p.y);
  const sameRoom=people.filter(o=>o!==p&&o.alive&&roomAt(o.x,o.y)===room);
@@ -328,9 +339,11 @@ function chooseNpcDestination(p){
   p.activity=Math.random()<.5?"conversando":"fofocando";
   p.socialTarget=other.name
  }else{
-  target=safePoint(room,p);
+  const reachable=reachablePointFor(p,room,24);
+  target=reachable?reachable.target:safePoint(room,p);
   p.activity=pick(["passeando","observando","descansando"])||"observando";
-  p.socialTarget=null
+  p.socialTarget=null;
+  if(reachable){p.path=reachable.path;p.pathIndex=0;p.repathCd=rnd(3,6);return}
  }
 
  p.path=findPath(p.x,p.y,target[0],target[1],p);
@@ -384,6 +397,8 @@ function makePerson(name,x,y,c,human=false){
  behaviorCd:rnd(3,8),activity:"observando",socialTarget:null,stuck:0,lastX:x,lastY:y,avoidCd:0,waitCd:0}
 }
 function start(){
+ if(gameStarted)return;
+ gameStarted=true;
  const name=document.querySelector("#name").value.trim()||"Jogador";
  // reset completo para impedir estado parcial caso o usuário tente iniciar novamente
  phase="social";round=1;time=70;feed=[];leader="";immune="";eventName="";near=null;doorNear=null;dialogueOpen=false;currentDialogue=null;if(typingTimer){clearInterval(typingTimer);typingTimer=null}document.querySelector("#dialogue").classList.add("hidden");closeModal();
@@ -425,7 +440,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.2.2");
+ toast("CASA EM JOGO • V1.2.4");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -670,19 +685,28 @@ function changeRel(name,trust=0,aff=0,susp=0){
  relationship[name].suspicion=Math.max(0,Math.min(100,relationship[name].suspicion+susp));
 }
 function showDialogue(name,color,text,choices=[]){
- dialogueOpen=true;currentDialogue={name,color,text,choices,typed:false};
+ choices=Array.isArray(choices)?choices:[];
+ text=String(text??"");
+ name=String(name??"Participante");
+ dialogueOpen=true;
+ currentDialogue={name,color,text,choices,typed:false};
  const box=document.querySelector("#dialogue");
+ if(!box){dialogueOpen=false;return}
  box.classList.remove("hidden");
- document.querySelector("#speaker").textContent=name;
- document.querySelector("#portrait").style.setProperty("--pc",color||"#57c7ff");const key=(name===me?.name?"theo":name.toLowerCase());document.querySelector("#portraitImg").src=`assets/portraits/${SPRITES[key]?key:"theo"}.png`;
- document.querySelector("#dialogueChoices").innerHTML="";
- document.querySelector("#dialogueHint").style.display=choices.length?"none":"block";
- typeDialogue(text,()=>finishDialogueTyping());
+ const speaker=document.querySelector("#speaker");if(speaker)speaker.textContent=name;
+ const portrait=document.querySelector("#portrait");if(portrait)portrait.style.setProperty("--pc",color||"#57c7ff");
+ const key=(name===me?.name?"theo":name.toLowerCase());
+ const portraitImg=document.querySelector("#portraitImg");if(portraitImg)portraitImg.src=`assets/portraits/${SPRITES[key]?key:"theo"}.png`;
+ const choiceBox=document.querySelector("#dialogueChoices");if(choiceBox)choiceBox.innerHTML="";
+ const hint=document.querySelector("#dialogueHint");if(hint)hint.style.display=choices.length?"none":"block";
+ typeDialogue(text,()=>finishDialogueTyping())
 }
+
 function finishDialogueTyping(){
  if(!currentDialogue)return;
  currentDialogue.typed=true;
  const q=document.querySelector("#dialogueChoices");
+ if(!q)return;
  q.innerHTML="";
  if(currentDialogue.choices.length){
   currentDialogue.choices.forEach(([label,fn])=>{
@@ -719,6 +743,7 @@ function closeDialogue(){
  if(q)q.innerHTML=""
 }
 function showRelationships(){
+ if(!relationship||typeof relationship!=="object")relationship={};
  if(!gameStarted||!me)return modal("🤝 RELAÇÕES","Entre na casa para ver suas relações.",["FECHAR"],closeModal);
  const lines=Object.entries(relationship).map(([n,r])=>`${n}: confiança ${r.trust} • afinidade ${r.affinity} • suspeita ${r.suspicion}`);
  modal("🤝 RELAÇÕES",lines.join("\n\n")||"Sem relações registradas.",["FECHAR"],closeModal)
@@ -737,7 +762,7 @@ function saveConfession(text){
  gossips.unshift(text);closeDialogue();addFeed("🎥 Um depoimento anônimo foi gravado no confessionário.");
  setTimeout(()=>addFeed(`📺 FOFOCA DA CASA: "${text}"`),900)
 }
-function showGossip(){modal("📺 CENTRAL DE FOFOCAS",gossips.length?gossips.slice(0,6).map((g,i)=>`${i+1}. ${g}`).join("\n\n"):"Ainda não há fofocas registradas.",["FECHAR"],closeModal)}
+function showGossip(){if(!Array.isArray(gossips))gossips=[];modal("📺 CENTRAL DE FOFOCAS",gossips.length?gossips.slice(0,6).map((g,i)=>`${i+1}. ${g}`).join("\n\n"):"Ainda não há fofocas registradas.",["FECHAR"],closeModal)}
 
 function randomEvent(){
  const events=[
@@ -752,7 +777,7 @@ function randomEvent(){
  ["🎯 MIRA","O Chefe deverá revelar publicamente três possíveis alvos."],
  ["🧊 CASTIGO","Um participante recebeu uma tarefa incômoda pela casa."]
  ];
- let e=pick(events);eventName=e[0];addFeed(`${e[0]} ${e[1]}`);toast(e[0]);if(e[0].includes("TELEFONE"))grantPower(pick(["Voto Duplo","Escudo Secreto","Espião","Moedas"]));if(e[0].includes("PODER SECRETO"))grantPower(pick(["Voto Duplo","Espião","Moedas"]));if(Math.random()<.45)gossips.unshift(e[1]);setTimeout(()=>eventName="",5500)
+ let e=pick(events);if(!e)return;if(!Array.isArray(gossips))gossips=[];eventName=e[0];addFeed(`${e[0]} ${e[1]}`);toast(e[0]);if(e[0].includes("TELEFONE"))grantPower(pick(["Voto Duplo","Escudo Secreto","Espião","Moedas"]));if(e[0].includes("PODER SECRETO"))grantPower(pick(["Voto Duplo","Espião","Moedas"]));if(Math.random()<.45)gossips.unshift(e[1]);setTimeout(()=>eventName="",5500)
 }
 
 function startChallenge(){if(phase!=="social")return;phase="challenge";challenge=(challenge+1)%5;if(challenge===0)return reaction();if(challenge===1)return memory();if(challenge===2)return resistance();if(challenge===3)return colors();return boxes()}
@@ -943,16 +968,25 @@ function runSelfTest(){
 
  people.filter(p=>!p.human).forEach(p=>{
   const room=roomAt(p.x,p.y);
-  const dest=safePoint(room,p);
-  const path=findPath(p.x,p.y,dest[0],dest[1],p,1200);
-  if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
+  const reachable=reachablePointFor(p,room,30);
+  if(!reachable)issues.push(`${p.name} sem rota local em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.2.2] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.2.4] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
-function normalizeStats(){stats.energy=Math.max(0,Math.min(115,Number.isFinite(stats.energy)?stats.energy:0));stats.social=Math.max(0,Math.min(100,Number.isFinite(stats.social)?stats.social:0));stats.rep=Math.max(0,Math.min(100,Number.isFinite(stats.rep)?stats.rep:0));stats.coins=Math.max(0,Number.isFinite(stats.coins)?stats.coins:0)}
+function showNpcDebug(){
+ if(!gameStarted)return modal("🤖 ESTADO DOS NPCs","Entre na casa para inspecionar os NPCs.",["FECHAR"],closeModal);
+ const bots=people.filter(p=>!p.human);
+ const text=bots.map(p=>{
+  const remaining=Math.max(0,(Array.isArray(p.path)?p.path.length:0)-(Number.isInteger(p.pathIndex)?p.pathIndex:0));
+  return `${p.name}: ${roomAt(p.x,p.y)} • ${p.activity||"sem atividade"} • rota ${remaining} • x${Math.round(p.x)} y${Math.round(p.y)}`
+ }).join("\n");
+ modal("🤖 ESTADO DOS NPCs",text||"Nenhum NPC ativo.",["FECHAR"],closeModal)
+}
+
+function normalizeStats(){if(!stats||typeof stats!=="object")stats={energy:100,social:50,rep:50,coins:0};stats.energy=Math.max(0,Math.min(115,Number.isFinite(stats.energy)?stats.energy:0));stats.social=Math.max(0,Math.min(100,Number.isFinite(stats.social)?stats.social:0));stats.rep=Math.max(0,Math.min(100,Number.isFinite(stats.rep)?stats.rep:0));stats.coins=Math.max(0,Number.isFinite(stats.coins)?stats.coins:0)}
 function ui(){if(!me)return;normalizeStats();document.querySelector("#energy").textContent=Math.round(stats.energy);document.querySelector("#social").textContent=Math.round(stats.social);document.querySelector("#rep").textContent=Math.round(stats.rep);document.querySelector("#coins").textContent=Math.round(stats.coins);document.querySelector("#roomBadge").textContent=roomAt(me.x,me.y)+(collisionDebug?" • DEBUG":"");const mc=activeMission?Math.min(activeMission.goal,missionCurrent()):0;document.querySelector("#missionShort").textContent=activeMission?`${activeMission.text} ${mc}/${activeMission.goal}`:"Sem missão";document.querySelector("#round").textContent=`RODADA ${round} • ${phase==="social"?"CONVIVÊNCIA":phase==="challenge"?"PROVA":"CERIMÔNIA"}`;document.querySelector("#timer").textContent=phase==="social"?`${String(Math.floor(Math.max(0,time)/60)).padStart(2,"0")}:${String(Math.ceil(Math.max(0,time)%60)).padStart(2,"0")}`:"EVENTO";document.querySelector("#event").textContent=eventName||(phase==="social"?"Convivência livre":"Evento em andamento");const night=round%3===0;document.querySelector("#dayLabel").textContent=`DIA ${round} ${night?"🌙":"☀️"}`;document.querySelector("#dayOverlay").style.opacity=night?".23":"0";document.querySelector("#players").innerHTML=people.map(p=>{const rel=relationship&&relationship[p.name],key=p.human?"theo":String(p.name||"npc").toLowerCase(),r=p===me?"Você":(rel?`🤝${rel.trust} 👁${rel.suspicion}`:"");return `<div class="person ${p.alive?"":"dead"}"><img src="assets/portraits/${key}.png"><div><span class="pname">${p.name}</span><span class="pmeta">${p.alive?(p.human?p.mood:`${p.mood} • ${p.activity||"pela casa"}`):"eliminado"}</span></div><span class="relation-mini">${r}</span></div>`}).join("");document.querySelector("#feed").innerHTML=feed.map(f=>`<div class="eventline">${f}</div>`).join("")}
 function alivePeople(){return people.filter(p=>p.alive)}
 function addFeed(t){
@@ -977,6 +1011,10 @@ function modal(title,text,choices=[],cb=null){
    b.onclick=()=>{if(typeof cb==="function")cb(c)};
    q.appendChild(b)
  })
+}
+function closeModal(){
+ const modalEl=document.querySelector("#modal");if(modalEl)modalEl.classList.add("hidden");
+ const q=document.querySelector("#choices");if(q)q.innerHTML=""
 }
 function bubble(t){toast(t)}
 function toast(t){
