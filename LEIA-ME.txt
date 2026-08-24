@@ -1,59 +1,30 @@
-CASA EM JOGO — V1.3.0 HOUSE FLOW
+CASA EM JOGO — V1.3.1 CONTINUOUS HOUSE
 
-PASSAGENS AUTOMÁTICAS
-- Cozinha ↔ Sala
-- Sala ↔ Hall
-- Hall ↔ Pátio
-- Hall ↔ Corredor
-- Corredor ↔ Quarto
-- Corredor ↔ Lounge
-- Lounge ↔ Confessionário
-- Cozinha ↔ Despensa
+CORREÇÃO PRINCIPAL
+- Teleportes automáticos entre cômodos removidos.
+- O cenário recebeu corredores físicos sobre os vãos pretos.
+- Colisões foram abertas nesses corredores.
+- Jogador e NPCs usam a mesma malha caminhável.
 
 CONFESSIONÁRIO
-- chamada periódica da Produção
-- alerta na tela
-- botão IR AGORA
-- personagem chega à entrada e caminha automaticamente até a câmera
-- diálogo do confessionário abre ao chegar
+- Produção continua chamando o jogador.
+- Agora o personagem calcula um caminho a partir da posição atual.
+- Ele atravessa a casa andando até o Confessionário.
+- Nenhum salto para a entrada.
 
-PROVAS
-- 5 arenas separadas: Reflexo, Memória, Resistência, Cores e Caixas
-- todos os jogadores são posicionados na arena
-- posições da casa são salvas
-- todos voltam exatamente ao mesmo lugar após a prova
+NPCs
+- Agora podem decidir ir para outros cômodos.
+- Pathfinding usa os novos corredores físicos.
+
+MELHORIAS
+- placas nas passagens
+- aviso de cômodo ao entrar
+- debug H mostra passagem caminhável e abertura das portas
+- portas por F foram desativadas porque não são mais necessárias
 
 QA
 - JavaScript: OK
-- 16 pontos de passagem validados contra colisão
-- 5 arenas 1024x765
-- runtime iniciou com 8 participantes / 7 NPCs
-- runtime testou Cozinha → Sala
-- runtime testou arena → retorno à casa
-
-{
-  "s1": {
-    "started": true,
-    "count": 8,
-    "bots": 7
-  },
-  "p": {
-    "room": "SALA",
-    "x": 394,
-    "y": 372
-  },
-  "a": {
-    "key": "reflexo",
-    "x": 131,
-    "y": 520
-  },
-  "back": {
-    "x": 405,
-    "y": 286,
-    "key": "",
-    "home": [
-      405,
-      286
-    ]
-  }
-}
+- todos os cômodos principais pertencem à mesma componente caminhável: {"SALA": true, "COZINHA": true, "DESPENSA": true, "PÁTIO": true, "HALL": true, "CORREDOR": true, "QUARTO": true, "LOUNGE": true, "CONFESSIONÁRIO": true}
+- corredor Cozinha → Sala testado ponto a ponto sem teleporte
+- Sala → Confessionário gera rota real
+- runtime: {"st": {"started": true, "count": 8}, "corridor": true, "route": 68}
