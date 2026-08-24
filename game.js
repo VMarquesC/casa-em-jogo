@@ -568,7 +568,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.10.7");
+ toast("CASA EM JOGO • V1.10.9");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -1195,7 +1195,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.10.7] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.10.9] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
@@ -1214,7 +1214,10 @@ function roomContextHint(){
  };
  return hints[roomAt(me.x,me.y)]||""
 }
-function ui(){if(!me)return;normalizeStats();document.querySelector("#energy").textContent=Math.round(stats.energy);document.querySelector("#social").textContent=Math.round(stats.social);document.querySelector("#rep").textContent=Math.round(stats.rep);document.querySelector("#coins").textContent=Math.round(stats.coins);document.querySelector("#roomBadge").textContent=phase==="challenge"?"🏟️ ARENA DA PROVA":roomAt(me.x,me.y)+(collisionDebug?" • DEBUG":"");const mc=activeMission?Math.min(activeMission.goal,missionCurrent()):0;document.querySelector("#missionShort").textContent=activeMission?`${activeMission.text} ${mc}/${activeMission.goal}`:"Sem missão";document.querySelector("#round").textContent=`RODADA ${round} • ${phase==="social"?"CONVIVÊNCIA":phase==="challenge"?"PROVA":"CERIMÔNIA"}`;document.querySelector("#timer").textContent=phase==="social"?`${String(Math.floor(Math.max(0,time)/60)).padStart(2,"0")}:${String(Math.ceil(Math.max(0,time)%60)).padStart(2,"0")}`:"EVENTO";document.querySelector("#event").textContent=eventName||(phase==="social"?"Convivência livre":"Evento em andamento");const night=round%3===0;document.querySelector("#dayLabel").textContent=`DIA ${round} ${night?"🌙":"☀️"}`;document.querySelector("#dayOverlay").style.opacity=night?".23":"0";document.querySelector("#players").innerHTML=people.map(p=>{const rel=relationship&&relationship[p.name],key=p.human?"theo":String(p.name||"npc").toLowerCase(),r=p===me?"Você":(rel?`🤝${rel.trust} 👁${rel.suspicion}`:"");return `<div class="person ${p.alive?"":"dead"}"><img src="assets/portraits/${key}.png"><div><span class="pname">${p.name}</span><span class="pmeta">${p.alive?(p.human?p.mood:`${p.mood} • ${p.activity||"pela casa"}`):"eliminado"}</span></div><span class="relation-mini">${r}</span></div>`}).join("");document.querySelector("#feed").innerHTML=feed.map(f=>`<div class="eventline">${f}</div>`).join("")
+function ui(){
+ if(typeof MAZE!=="undefined"&&MAZE.active){
+   near=null;doorNear=null;
+ }if(!me)return;normalizeStats();document.querySelector("#energy").textContent=Math.round(stats.energy);document.querySelector("#social").textContent=Math.round(stats.social);document.querySelector("#rep").textContent=Math.round(stats.rep);document.querySelector("#coins").textContent=Math.round(stats.coins);document.querySelector("#roomBadge").textContent=phase==="challenge"?"🏟️ ARENA DA PROVA":roomAt(me.x,me.y)+(collisionDebug?" • DEBUG":"");const mc=activeMission?Math.min(activeMission.goal,missionCurrent()):0;document.querySelector("#missionShort").textContent=activeMission?`${activeMission.text} ${mc}/${activeMission.goal}`:"Sem missão";document.querySelector("#round").textContent=`RODADA ${round} • ${phase==="social"?"CONVIVÊNCIA":phase==="challenge"?"PROVA":"CERIMÔNIA"}`;document.querySelector("#timer").textContent=phase==="social"?`${String(Math.floor(Math.max(0,time)/60)).padStart(2,"0")}:${String(Math.ceil(Math.max(0,time)%60)).padStart(2,"0")}`:"EVENTO";document.querySelector("#event").textContent=eventName||(phase==="social"?"Convivência livre":"Evento em andamento");const night=round%3===0;document.querySelector("#dayLabel").textContent=`DIA ${round} ${night?"🌙":"☀️"}`;document.querySelector("#dayOverlay").style.opacity=night?".23":"0";document.querySelector("#players").innerHTML=people.map(p=>{const rel=relationship&&relationship[p.name],key=p.human?"theo":String(p.name||"npc").toLowerCase(),r=p===me?"Você":(rel?`🤝${rel.trust} 👁${rel.suspicion}`:"");return `<div class="person ${p.alive?"":"dead"}"><img src="assets/portraits/${key}.png"><div><span class="pname">${p.name}</span><span class="pmeta">${p.alive?(p.human?p.mood:`${p.mood} • ${p.activity||"pela casa"}`):"eliminado"}</span></div><span class="relation-mini">${r}</span></div>`}).join("");document.querySelector("#feed").innerHTML=feed.map(f=>`<div class="eventline">${f}</div>`).join("")
  const board=document.querySelector("#eventBoardCurrent");
  const phaseEl=document.querySelector("#eventBoardPhase");
  if(board){
@@ -2731,6 +2734,8 @@ const MAZE={
 ,
  countdownEndsAt:0,
  lastUpdateAt:0
+,
+ navRoutes:[[[624,1136],[624,1112],[632,1096],[640,1080],[656,1072],[664,1056],[680,1048],[680,1024],[672,1008],[656,1000],[640,992],[616,992],[592,992],[576,984],[560,976],[536,976],[512,976],[488,976],[464,976],[440,976],[416,976],[408,960],[400,944],[400,920],[400,896],[400,872],[400,848],[392,832],[392,808],[376,800],[352,800],[336,792],[320,784],[312,768],[312,744],[304,728],[296,712],[288,696],[272,688],[256,680],[232,680],[216,672],[208,656],[208,632],[208,608],[200,592],[208,576],[208,552],[208,528],[216,512],[224,496],[248,496],[272,496],[296,496],[320,496],[344,496],[368,496],[392,496],[416,496],[440,496],[464,496],[488,496],[496,512],[504,528],[504,552],[512,568],[528,576],[544,584],[568,584],[584,592],[584,616],[592,632],[600,648],[600,672],[608,688],[632,688],[648,696],[672,696],[680,712],[688,728],[688,752],[704,760],[728,760],[744,768],[768,768],[792,768],[816,768],[840,768],[864,768],[880,776],[904,776],[920,784],[936,792],[960,792],[976,800],[976,824],[984,840],[992,856],[1000,872],[1000,896],[1008,912],[1016,928],[1016,952],[1024,968],[1040,976],[1064,976],[1072,960],[1080,944],[1080,920],[1080,896],[1080,872],[1080,848],[1088,832],[1088,808],[1088,784],[1088,760],[1088,736],[1088,712],[1088,688],[1088,664],[1088,640],[1088,616],[1088,592],[1088,568],[1088,544],[1088,520],[1088,496],[1088,472],[1088,448],[1096,432],[1096,408],[1096,384],[1104,368],[1104,344],[1104,320],[1112,304],[1112,280],[1112,256],[1136,256],[1152,264],[1168,256],[1168,232],[1168,208],[1168,184],[1168,160],[1176,144],[1176,120],[1176,96]],[[624,1136],[632,1120],[632,1096],[640,1080],[664,1080],[672,1064],[680,1048],[680,1024],[680,1000],[664,992],[648,984],[624,984],[608,976],[584,976],[560,976],[536,976],[512,976],[488,976],[464,976],[440,976],[416,976],[408,960],[400,944],[400,920],[400,896],[400,872],[400,848],[392,832],[384,816],[384,792],[368,784],[344,784],[328,776],[312,768],[304,752],[304,728],[296,712],[288,696],[264,696],[248,688],[224,688],[208,680],[208,656],[208,632],[200,616],[200,592],[200,568],[200,544],[200,520],[208,504],[224,496],[248,496],[272,496],[296,496],[320,496],[344,496],[368,496],[392,496],[416,496],[440,496],[464,496],[480,504],[496,512],[496,536],[504,552],[512,568],[520,584],[544,584],[560,592],[576,600],[584,616],[592,632],[600,648],[600,672],[616,680],[640,680],[664,680],[672,696],[680,712],[680,736],[688,752],[704,760],[720,768],[744,768],[768,768],[792,768],[816,768],[840,768],[856,776],[872,784],[896,784],[912,792],[936,792],[952,800],[976,800],[976,824],[984,840],[992,856],[992,880],[1000,896],[1008,912],[1016,928],[1016,952],[1024,968],[1040,976],[1064,976],[1080,968],[1080,944],[1080,920],[1080,896],[1080,872],[1088,856],[1088,832],[1088,808],[1088,784],[1088,760],[1088,736],[1088,712],[1088,688],[1088,664],[1088,640],[1088,616],[1088,592],[1088,568],[1088,544],[1088,520],[1088,496],[1088,472],[1088,448],[1096,432],[1096,408],[1096,384],[1104,368],[1104,344],[1104,320],[1112,304],[1112,280],[1112,256],[1136,256],[1152,264],[1168,256],[1168,232],[1168,208],[1168,184],[1168,160],[1176,144],[1176,120],[1176,96]],[[624,1136],[632,1120],[640,1104],[648,1088],[664,1080],[672,1064],[680,1048],[680,1024],[680,1000],[656,1000],[640,992],[616,992],[600,984],[584,976],[560,976],[536,976],[512,976],[488,976],[464,976],[440,976],[416,976],[408,960],[400,944],[400,920],[400,896],[400,872],[400,848],[392,832],[384,816],[376,800],[360,792],[344,784],[320,784],[312,768],[304,752],[296,736],[296,712],[280,704],[256,704],[240,696],[224,688],[208,680],[208,656],[208,632],[200,616],[200,592],[200,568],[200,544],[200,520],[208,504],[224,496],[248,496],[272,496],[296,496],[320,496],[344,496],[368,496],[392,496],[416,496],[440,496],[464,496],[488,496],[488,520],[496,536],[504,552],[512,568],[536,568],[552,576],[568,584],[576,600],[584,616],[592,632],[592,656],[600,672],[616,680],[632,688],[656,688],[672,696],[696,696],[704,712],[704,736],[704,760],[720,768],[744,768],[768,768],[792,768],[808,776],[832,776],[856,776],[880,776],[904,776],[928,776],[944,784],[960,792],[976,800],[976,824],[984,840],[984,864],[992,880],[1000,896],[1008,912],[1008,936],[1016,952],[1024,968],[1040,976],[1064,976],[1080,968],[1080,944],[1080,920],[1080,896],[1080,872],[1088,856],[1088,832],[1088,808],[1088,784],[1088,760],[1088,736],[1088,712],[1088,688],[1088,664],[1088,640],[1088,616],[1088,592],[1088,568],[1088,544],[1088,520],[1088,496],[1088,472],[1088,448],[1096,432],[1096,408],[1096,384],[1104,368],[1104,344],[1104,320],[1112,304],[1112,280],[1112,256],[1136,256],[1152,264],[1168,256],[1168,232],[1168,208],[1168,184],[1168,160],[1176,144],[1176,120],[1176,96]],[[624,1136],[632,1120],[640,1104],[648,1088],[656,1072],[664,1056],[680,1048],[680,1024],[680,1000],[672,984],[648,984],[632,976],[608,976],[584,976],[560,976],[536,976],[512,976],[488,976],[464,976],[440,976],[416,976],[400,968],[400,944],[400,920],[400,896],[400,872],[392,856],[392,832],[384,816],[376,800],[352,800],[336,792],[312,792],[312,768],[304,752],[296,736],[288,720],[288,696],[272,688],[248,688],[232,680],[216,672],[208,656],[208,632],[200,616],[200,592],[200,568],[200,544],[200,520],[208,504],[224,496],[248,496],[272,496],[296,496],[320,496],[344,496],[368,496],[392,496],[416,496],[440,496],[464,496],[480,504],[488,520],[496,536],[504,552],[504,576],[528,576],[544,584],[568,584],[576,600],[584,616],[584,640],[592,656],[600,672],[608,688],[632,688],[648,696],[664,704],[688,704],[704,712],[704,736],[704,760],[728,760],[744,768],[768,768],[792,768],[816,768],[840,768],[864,768],[880,776],[896,784],[920,784],[936,792],[960,792],[976,800],[976,824],[976,848],[984,864],[992,880],[1000,896],[1000,920],[1008,936],[1016,952],[1024,968],[1040,976],[1064,976],[1072,960],[1080,944],[1080,920],[1080,896],[1080,872],[1088,856],[1088,832],[1088,808],[1088,784],[1088,760],[1088,736],[1088,712],[1088,688],[1088,664],[1088,640],[1088,616],[1088,592],[1088,568],[1088,544],[1088,520],[1088,496],[1088,472],[1096,456],[1096,432],[1096,408],[1104,392],[1104,368],[1104,344],[1112,328],[1112,304],[1112,280],[1112,256],[1136,256],[1152,264],[1168,256],[1168,232],[1168,208],[1168,184],[1176,168],[1176,144],[1176,120],[1176,96]],[[624,1136],[632,1120],[640,1104],[648,1088],[656,1072],[672,1064],[680,1048],[680,1024],[680,1000],[664,992],[640,992],[624,984],[608,976],[584,976],[560,976],[536,976],[512,976],[488,976],[464,976],[440,976],[416,976],[400,968],[400,944],[400,920],[400,896],[400,872],[392,856],[384,840],[384,816],[376,800],[368,784],[344,784],[328,776],[304,776],[304,752],[296,736],[288,720],[280,704],[264,696],[248,688],[224,688],[216,672],[208,656],[200,640],[200,616],[200,592],[200,568],[200,544],[208,528],[216,512],[224,496],[248,496],[272,496],[296,496],[320,496],[344,496],[368,496],[392,496],[416,496],[440,496],[464,496],[480,504],[488,520],[496,536],[496,560],[504,576],[520,584],[536,592],[560,592],[576,600],[576,624],[584,640],[592,656],[600,672],[616,680],[640,680],[656,688],[680,688],[696,696],[696,720],[704,736],[704,760],[720,768],[744,768],[768,768],[792,768],[816,768],[832,776],[856,776],[872,784],[896,784],[912,792],[936,792],[952,800],[976,800],[976,824],[976,848],[984,864],[992,880],[992,904],[1000,920],[1008,936],[1016,952],[1016,976],[1040,976],[1064,976],[1072,960],[1080,944],[1080,920],[1080,896],[1088,880],[1088,856],[1088,832],[1088,808],[1088,784],[1088,760],[1088,736],[1088,712],[1088,688],[1088,664],[1088,640],[1088,616],[1088,592],[1088,568],[1088,544],[1088,520],[1088,496],[1088,472],[1096,456],[1096,432],[1096,408],[1104,392],[1104,368],[1104,344],[1112,328],[1112,304],[1112,280],[1112,256],[1136,256],[1152,264],[1168,256],[1168,232],[1168,208],[1168,184],[1176,168],[1176,144],[1176,120],[1176,96]],[[624,1136],[624,1112],[632,1096],[640,1080],[648,1064],[656,1048],[680,1048],[680,1024],[672,1008],[656,1000],[640,992],[616,992],[600,984],[576,984],[560,976],[536,976],[512,976],[488,976],[464,976],[440,976],[416,976],[400,968],[400,944],[400,920],[400,896],[400,872],[392,856],[384,840],[384,816],[376,800],[360,792],[336,792],[320,784],[304,776],[296,760],[296,736],[288,720],[280,704],[264,696],[240,696],[216,696],[216,672],[208,656],[200,640],[200,616],[200,592],[200,568],[200,544],[208,528],[216,512],[224,496],[248,496],[272,496],[296,496],[320,496],[344,496],[368,496],[392,496],[416,496],[440,496],[464,496],[480,504],[488,520],[488,544],[496,560],[512,568],[528,576],[552,576],[568,584],[568,608],[576,624],[584,640],[592,656],[592,680],[616,680],[632,688],[656,688],[672,696],[688,704],[696,720],[704,736],[704,760],[728,760],[744,768],[768,768],[792,768],[808,776],[832,776],[856,776],[880,776],[904,776],[920,784],[944,784],[960,792],[976,800],[976,824],[976,848],[984,864],[984,888],[992,904],[1000,920],[1008,936],[1008,960],[1016,976],[1040,976],[1064,976],[1072,960],[1080,944],[1080,920],[1080,896],[1088,880],[1088,856],[1088,832],[1088,808],[1088,784],[1088,760],[1088,736],[1088,712],[1088,688],[1088,664],[1088,640],[1088,616],[1088,592],[1088,568],[1088,544],[1088,520],[1088,496],[1088,472],[1088,448],[1088,424],[1088,400],[1096,384],[1096,360],[1096,336],[1104,320],[1104,296],[1104,272],[1112,256],[1136,256],[1152,264],[1168,256],[1168,232],[1168,208],[1168,184],[1168,160],[1168,136],[1168,112],[1176,96]],[[624,1136],[624,1112],[632,1096],[640,1080],[648,1064],[664,1056],[680,1048],[680,1024],[672,1008],[664,992],[640,992],[616,992],[592,992],[576,984],[552,984],[536,976],[512,976],[488,976],[464,976],[440,976],[416,976],[408,960],[400,944],[400,920],[400,896],[392,880],[392,856],[384,840],[384,816],[384,792],[368,784],[352,776],[328,776],[328,752],[312,744],[288,744],[288,720],[280,704],[272,688],[248,688],[232,680],[208,680],[208,656],[200,640],[200,616],[200,592],[200,568],[200,544],[208,528],[208,504],[224,496],[248,496],[272,496],[296,496],[320,496],[344,496],[368,496],[392,496],[416,496],[440,496],[464,496],[480,504],[480,528],[488,544],[496,560],[504,576],[528,576],[544,584],[560,592],[568,608],[576,624],[584,640],[584,664],[592,680],[608,688],[624,696],[648,696],[672,696],[688,704],[696,720],[704,736],[704,760],[728,760],[744,768],[768,768],[792,768],[816,768],[840,768],[856,776],[880,776],[896,784],[920,784],[936,792],[952,800],[976,800],[976,824],[976,848],[976,872],[984,888],[992,904],[1000,920],[1000,944],[1008,960],[1024,968],[1040,976],[1064,976],[1072,960],[1080,944],[1080,920],[1080,896],[1088,880],[1088,856],[1088,832],[1088,808],[1088,784],[1088,760],[1088,736],[1088,712],[1088,688],[1088,664],[1088,640],[1088,616],[1088,592],[1088,568],[1088,544],[1088,520],[1088,496],[1088,472],[1088,448],[1088,424],[1088,400],[1096,384],[1096,360],[1096,336],[1104,320],[1104,296],[1104,272],[1112,256],[1136,256],[1152,264],[1168,256],[1168,232],[1168,208],[1168,184],[1168,160],[1168,136],[1168,112],[1176,96]]]
 };
 MAZE.map.src="assets/arena_labirinto.png";
 MAZE.mask.src="assets/arena_labirinto_mask.png";
@@ -2754,14 +2759,30 @@ function mazeWaypointCanvas(i){
 
 function mazeProgressOf(p){
  if(!p)return 0;
- const sx=C.width*.50,sy=C.height*.91;
- const ex=C.width*.94,ey=C.height*.08;
- const total=Math.hypot(ex-sx,ey-sy)||1;
- const toward=1-Math.min(1,Math.hypot(ex-p.x,ey-p.y)/total);
- const old=MAZE.progress?.get(p)||0;
- const v=Math.max(old,Math.max(0,toward));
- MAZE.progress.set(p,v);
- return v
+ if(!(MAZE.progress instanceof Map))MAZE.progress=new Map();
+
+ if(!p.human && p.mazeRoute && p.mazeRoute.length){
+   const v=(p.mazeRouteIndex||0)/Math.max(1,p.mazeRoute.length-1);
+   const old=MAZE.progress.get(p)||0;
+   const out=Math.max(old,Math.max(0,Math.min(1,v)));
+   MAZE.progress.set(p,out);
+   return out
+ }
+
+ let best=0;
+ const routes=Array.isArray(MAZE.navRoutes)?MAZE.navRoutes:[];
+ for(const route of routes){
+   if(!Array.isArray(route)||!route.length)continue;
+   for(let i=0;i<route.length;i++){
+     const [x,y]=mazeRoutePointCanvas(route[i]);
+     const d=Math.hypot(p.x-x,p.y-y);
+     if(Number.isFinite(d)&&d<36)best=Math.max(best,i/Math.max(1,route.length-1))
+   }
+ }
+ const old=MAZE.progress.get(p)||0;
+ const out=Math.max(old,Math.max(0,Math.min(1,best)));
+ MAZE.progress.set(p,out);
+ return out
 }
 
 function mazeLeaderboard(){
@@ -2798,53 +2819,100 @@ function mazeNpcSkill(p){
 }
 
 function mazeNpcInit(p,index){
- p.mazeWp=0;
- p.mazeSkill=mazeNpcSkill(p);
- p.mazeMistake=1+Math.random()*3;
- p.mazePause=0;
- p.mazeBacktrack=0;
- // Pequena diferença de reação na largada.
- p.mazeReaction=.10+Math.random()*.65;
+ p.mazeRoute=(MAZE.navRoutes&&MAZE.navRoutes.length)?MAZE.navRoutes[index%MAZE.navRoutes.length]:[];
+ p.mazeRouteIndex=0;
+ p.mazeSkill=.84+Math.random()*.20;
+ if(realityTrait(p)==="competitivo")p.mazeSkill+=.08;
+ p.mazePause=Math.random()*.25;
+ p.mazeFinished=false
+}
+
+
+function mazeRoutePointCanvas(pt){
+ if(!pt)return [0,0];
+ return mazeImageToCanvas(pt[0],pt[1])
+}
+function mazeSeparation(p){
+ if(!p)return [0,0];
+ let sx=0,sy=0,count=0;
+ for(const o of people){
+   if(!o||o===p||o.alive===false||o.eliminated)continue;
+   if(!Number.isFinite(o.x)||!Number.isFinite(o.y))continue;
+   const dx=p.x-o.x,dy=p.y-o.y,d=Math.hypot(dx,dy);
+   if(d>1&&d<22){
+     const force=(22-d)/22;
+     sx+=(dx/d)*force;
+     sy+=(dy/d)*force;
+     count++
+   }
+ }
+ if(!count)return [0,0];
+ const ox=sx/count,oy=sy/count;
+ const mag=Math.hypot(ox,oy);
+ if(mag>1)return [ox/mag,oy/mag];
+ return [ox,oy]
 }
 
 function mazeNpcRace(p,dt){
  if(!p||p.mazeFinished||!MAZE.started||MAZE.finished)return;
  if(!Number.isFinite(dt)||dt<=0)return;
 
- const ex=C.width*.94,ey=C.height*.08;
- const skill=Math.max(.7,Math.min(1.2,((p.challenge||50)/100)+.65));
- const speed=(48+38*skill)*dt;
+ if(p.mazePause>0){
+   p.mazePause=Math.max(0,p.mazePause-dt);
+   return
+ }
 
- // Direção principal para a saída + opções de desvio.
- const base=Math.atan2(ey-p.y,ex-p.x);
- const offsets=[0,.35,-.35,.7,-.7,1.1,-1.1,1.55,-1.55,Math.PI];
+ const route=Array.isArray(p.mazeRoute)?p.mazeRoute:[];
+ if(route.length<2)return;
+
+ let idx=Number.isFinite(p.mazeRouteIndex)?Math.floor(p.mazeRouteIndex):0;
+ idx=Math.max(0,Math.min(route.length-1,idx));
+ p.mazeRouteIndex=idx;
+
+ const [tx,ty]=mazeRoutePointCanvas(route[idx]);
+ let dx=tx-p.x,dy=ty-p.y;
+ let d=Math.hypot(dx,dy);
+
+ if(d<11){
+   p.mazeRouteIndex=Math.min(route.length-1,idx+1);
+   if(p.mazeRouteIndex>=route.length-1&&mazeNearExit(p)){
+     mazeFinishParticipant(p);
+     return
+   }
+   return
+ }
+
+ if(!Number.isFinite(d)||d<.001){
+   p.mazePause=.08;
+   return
+ }
+
+ dx/=d;dy/=d;
+
+ const [sepX,sepY]=mazeSeparation(p);
+ dx+=Number.isFinite(sepX)?sepX*.65:0;
+ dy+=Number.isFinite(sepY)?sepY*.65:0;
+
+ const norm=Math.hypot(dx,dy)||1;
+ dx/=norm;dy/=norm;
+
+ const skill=Number.isFinite(p.mazeSkill)?p.mazeSkill:.9;
+ const speed=58+22*Math.max(.7,Math.min(1.2,skill));
+ const mx=dx*speed*dt,my=dy*speed*dt;
+ const steps=Math.max(1,Math.ceil(Math.max(Math.abs(mx),Math.abs(my))/2));
+ const sx=mx/steps,sy=my/steps;
 
  let moved=false;
- for(const off of offsets){
-   const ang=base+off+(Math.random()-.5)*.08;
-   const nx=p.x+Math.cos(ang)*speed;
-   const ny=p.y+Math.sin(ang)*speed;
-
-   if(mazeWalkableCanvas(nx,ny,4)){
-     p.x=nx;
-     p.y=ny;
-     moved=true;
-     break
-   }
+ for(let i=0;i<steps;i++){
+   if(mazeWalkableCanvas(p.x+sx,p.y,4)){p.x+=sx;moved=true}
+   if(mazeWalkableCanvas(p.x,p.y+sy,4)){p.y+=sy;moved=true}
  }
 
- // Se ficou preso, tenta escapar aleatoriamente.
  if(!moved){
-   for(let i=0;i<8;i++){
-     const ang=Math.random()*Math.PI*2;
-     const nx=p.x+Math.cos(ang)*speed*.9;
-     const ny=p.y+Math.sin(ang)*speed*.9;
-     if(mazeWalkableCanvas(nx,ny,4)){
-       p.x=nx;p.y=ny;moved=true;break
-     }
-   }
+   p.mazePause=.08+Math.random()*.16;
+   // Safer recovery: go back one waypoint instead of blindly skipping forward.
+   if(Math.random()<.55)p.mazeRouteIndex=Math.max(0,p.mazeRouteIndex-1)
  }
-
  mazeProgressOf(p);
  if(mazeNearExit(p))mazeFinishParticipant(p)
 }
@@ -2903,9 +2971,22 @@ function mazeWalkableCanvas(x,y,r=4){
 }
 
 function mazeNearExit(p){
- if(!p||!MAZE.started)return false;
- const prog=MAZE.progress?.get(p)||0;
- return prog>.72 && p.x>C.width*.885 && p.y<C.height*.16
+ if(!p||!MAZE.started||MAZE.finished)return false;
+ const inExitArea=p.x>C.width*.885 && p.y<C.height*.17;
+ if(!inExitArea)return false;
+ const prog=mazeProgressOf(p);
+ return prog>.82
+}
+
+function mazeSnapToWalkable(x,y,maxR=50){
+ if(mazeWalkableCanvas(x,y,3))return [x,y];
+ for(let r=4;r<=maxR;r+=4){
+   const pts=[[x+r,y],[x-r,y],[x,y+r],[x,y-r],[x+r,y+r],[x-r,y+r],[x+r,y-r],[x-r,y-r]];
+   for(const [px,py] of pts){
+     if(mazeWalkableCanvas(px,py,3))return [px,py]
+   }
+ }
+ return [x,y]
 }
 
 function mazeStartPoints(){
@@ -2913,7 +2994,7 @@ function mazeStartPoints(){
  const baseX=C.width*.50,baseY=C.height*.91;
  return alive.map((p,i)=>{
    const col=(i%4)-1.5,row=Math.floor(i/4);
-   return [baseX+col*14,baseY-row*15]
+   return mazeSnapToWalkable(baseX+col*18,baseY-row*20,64)
  })
 }
 
@@ -2979,7 +3060,9 @@ function mazeLeave(){
    delete p.mazeMistake;
    delete p.mazePause;
    delete p.mazeBacktrack;
-   delete p.mazeReaction
+   delete p.mazeReaction;
+   delete p.mazeRouteIndex;
+   delete p.mazeRoute
  });
 
  MAZE.active=false;
