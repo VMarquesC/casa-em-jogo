@@ -38,23 +38,27 @@ js/
 └── network/
 ```
 
-A organização detalhada está em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+## Documentação
+
+- [Arquitetura](docs/ARCHITECTURE.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Direção multiplayer](docs/MULTIPLAYER.md)
+- [Checklist de testes](docs/TESTING.md)
+- [Releases e versionamento](docs/RELEASES.md)
+- [Como importar o histórico antigo](docs/HISTORY_IMPORT.md)
+- [Guia de contribuição](CONTRIBUTING.md)
 
 ## Roadmap
 
-Os principais próximos passos estão em [`docs/ROADMAP.md`](docs/ROADMAP.md) e também nas Issues do repositório.
-
-Entre os objetivos estão melhorar os sprites e animações, adicionar novas provas, polir as festas e evoluir gradualmente para multiplayer com servidor autoritativo.
+Entre os objetivos estão melhorar os sprites e animações, adicionar novas provas, polir as festas e evoluir gradualmente para multiplayer com servidor autoritativo. As tarefas principais também estão organizadas nas Issues do repositório.
 
 ## Histórico de versões
 
 O histórico antigo será importado em commits e tags, preservando os estados reais que o projeto teve ao longo do desenvolvimento. Os arquivos ZIP das builds não devem ser versionados dentro do repositório.
 
-Consulte [`docs/RELEASES.md`](docs/RELEASES.md) para o padrão de versionamento.
-
 ## Desenvolvimento
 
-Antes de contribuir ou reorganizar arquivos, consulte [`CONTRIBUTING.md`](CONTRIBUTING.md).
+O repositório possui templates para bugs, sugestões e Pull Requests, além de uma GitHub Action simples para validar a sintaxe dos arquivos JavaScript quando o código for importado.
 
 ---
 
