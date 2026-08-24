@@ -1,20 +1,25 @@
-CASA EM JOGO — V1.3.7 WALL COLLISION
+CASA EM JOGO — V1.3.8 DOOR OPENINGS
 
-CORREÇÃO
-- paredes voltaram a ser colisões explícitas;
-- as áreas azuis da versão anterior continuam caminháveis;
-- móveis continuam bloqueando separadamente;
-- sem teleporte.
+Correção estrutural:
+- paredes continuam bloqueando;
+- agora existem WALL_OPENINGS explícitas nas portas;
+- uma abertura de porta tem prioridade apenas sobre WALLS;
+- móveis continuam bloqueando mesmo dentro das portas.
 
-MELHORIAS
-- sliding ao encostar em paredes;
-- pathfinding otimizado (grade 4px);
-- NPCs recalculam rota com menos frequência;
-- debug H: verde=piso, amarelo=móvel, vermelho=parede;
-- primeira visita a um cômodo entra no feed;
-- dicas contextuais aparecem após alguns segundos no ambiente.
+Corrigido:
+- faixa direita da cozinha;
+- Cozinha -> Sala;
+- Sala -> Hall;
+- Hall -> Pátio;
+- Quarto -> Corredor;
+- Corredor -> Lounge;
+- Lounge -> Confessionário.
 
-QA
-- pontos de parede testados como bloqueados;
-- sete faixas azuis principais continuam com rota;
-- inicialização cria 8 participantes e 7 NPCs.
+Debug H:
+- verde = piso;
+- amarelo = móveis;
+- vermelho = paredes;
+- azul = portas/aberturas.
+
+Melhoria adicional:
+- NPC que fica preso recalcula a rota automaticamente.
