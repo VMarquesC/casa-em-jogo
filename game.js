@@ -568,7 +568,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.10.9");
+ toast("CASA EM JOGO • V1.11.0");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -1070,7 +1070,7 @@ function drawPerson(p){
  if(p.name===leader){ctx.fillStyle="#ffd25f";ctx.font="bold 13px system-ui";ctx.fillText("♛",p.x,p.y-50)}if(p.name===immune){ctx.strokeStyle="#74e39a";ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y+1,15,0,Math.PI*2);ctx.stroke()}if(p===me){ctx.strokeStyle="#57d9ff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,18,0,Math.PI*2);ctx.stroke()}
  ctx.restore()
 
- if(typeof LIVING!=="undefined"){
+ if(typeof LIVING!=="undefined" && !(typeof MAZE!=="undefined"&&MAZE.active)){
    const mood=livingMood(p);
    const thought=livingRecentThought(p);
 
@@ -1195,7 +1195,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.10.9] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.11.0] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
@@ -2821,12 +2821,17 @@ function mazeNpcSkill(p){
 function mazeNpcInit(p,index){
  p.mazeRoute=(MAZE.navRoutes&&MAZE.navRoutes.length)?MAZE.navRoutes[index%MAZE.navRoutes.length]:[];
  p.mazeRouteIndex=0;
- p.mazeSkill=.84+Math.random()*.20;
- if(realityTrait(p)==="competitivo")p.mazeSkill+=.08;
- p.mazePause=Math.random()*.25;
+
+ // Individual pace prevents the pack from moving as one unit.
+ p.mazeSkill=.80+Math.random()*.24;
+ if(realityTrait(p)==="competitivo")p.mazeSkill+=.07;
+
+ // Staggered launch: small enough to feel simultaneous,
+ // enough to avoid 7 sprites occupying the exact same frame.
+ p.mazeReaction=.04+index*.045+Math.random()*.08;
+ p.mazePause=0;
  p.mazeFinished=false
 }
-
 
 function mazeRoutePointCanvas(pt){
  if(!pt)return [0,0];
@@ -2857,6 +2862,11 @@ function mazeNpcRace(p,dt){
  if(!p||p.mazeFinished||!MAZE.started||MAZE.finished)return;
  if(!Number.isFinite(dt)||dt<=0)return;
 
+ if(p.mazeReaction>0){
+   p.mazeReaction=Math.max(0,p.mazeReaction-dt);
+   return
+ }
+
  if(p.mazePause>0){
    p.mazePause=Math.max(0,p.mazePause-dt);
    return
@@ -2873,8 +2883,10 @@ function mazeNpcRace(p,dt){
  let dx=tx-p.x,dy=ty-p.y;
  let d=Math.hypot(dx,dy);
 
- if(d<11){
+ // Move forward through waypoints as soon as this node is reached.
+ if(d<12){
    p.mazeRouteIndex=Math.min(route.length-1,idx+1);
+
    if(p.mazeRouteIndex>=route.length-1&&mazeNearExit(p)){
      mazeFinishParticipant(p);
      return
@@ -2883,38 +2895,57 @@ function mazeNpcRace(p,dt){
  }
 
  if(!Number.isFinite(d)||d<.001){
-   p.mazePause=.08;
+   p.mazeRouteIndex=Math.min(route.length-1,idx+1);
    return
  }
 
  dx/=d;dy/=d;
 
- const [sepX,sepY]=mazeSeparation(p);
- dx+=Number.isFinite(sepX)?sepX*.65:0;
- dy+=Number.isFinite(sepY)?sepY*.65:0;
-
- const norm=Math.hypot(dx,dy)||1;
- dx/=norm;dy/=norm;
-
  const skill=Number.isFinite(p.mazeSkill)?p.mazeSkill:.9;
- const speed=58+22*Math.max(.7,Math.min(1.2,skill));
- const mx=dx*speed*dt,my=dy*speed*dt;
- const steps=Math.max(1,Math.ceil(Math.max(Math.abs(mx),Math.abs(my))/2));
+ const speed=62+26*Math.max(.72,Math.min(1.18,skill));
+
+ const mx=dx*speed*dt;
+ const my=dy*speed*dt;
+ const steps=Math.max(1,Math.ceil(Math.max(Math.abs(mx),Math.abs(my))/1.75));
  const sx=mx/steps,sy=my/steps;
 
  let moved=false;
+
  for(let i=0;i<steps;i++){
-   if(mazeWalkableCanvas(p.x+sx,p.y,4)){p.x+=sx;moved=true}
-   if(mazeWalkableCanvas(p.x,p.y+sy,4)){p.y+=sy;moved=true}
+   // Only maze geometry is solid.
+   // Other participants do not push or block this NPC.
+   if(mazeWalkableCanvas(p.x+sx,p.y,3.25)){
+     p.x+=sx;
+     moved=true
+   }
+
+   if(mazeWalkableCanvas(p.x,p.y+sy,3.25)){
+     p.y+=sy;
+     moved=true
+   }
  }
 
  if(!moved){
-   p.mazePause=.08+Math.random()*.16;
-   // Safer recovery: go back one waypoint instead of blindly skipping forward.
-   if(Math.random()<.55)p.mazeRouteIndex=Math.max(0,p.mazeRouteIndex-1)
+   // A route point can sit too close to an edge after mask changes.
+   // Try previous/next route nodes instead of jittering against the hedge.
+   p.mazePause=.04+Math.random()*.06;
+
+   const next=Math.min(route.length-1,idx+1);
+   if(next!==idx){
+     const [nx,ny]=mazeRoutePointCanvas(route[next]);
+     if(mazeWalkableCanvas(nx,ny,3.25)){
+       p.mazeRouteIndex=next
+     }else if(idx>0){
+       p.mazeRouteIndex=idx-1
+     }
+   }
  }
+
  mazeProgressOf(p);
- if(mazeNearExit(p))mazeFinishParticipant(p)
+
+ if(mazeNearExit(p)){
+   mazeFinishParticipant(p)
+ }
 }
 
 function mazeFinishParticipant(p){
@@ -2992,9 +3023,15 @@ function mazeSnapToWalkable(x,y,maxR=50){
 function mazeStartPoints(){
  const alive=people.filter(p=>p&&p.alive!==false&&!p.eliminated);
  const baseX=C.width*.50,baseY=C.height*.91;
+
+ const formation=[
+   [-31,0],[-10,0],[11,0],[32,0],
+   [-27,-19],[-7,-19],[13,-19],[33,-19]
+ ];
+
  return alive.map((p,i)=>{
-   const col=(i%4)-1.5,row=Math.floor(i/4);
-   return mazeSnapToWalkable(baseX+col*18,baseY-row*20,64)
+   const off=formation[i%formation.length];
+   return mazeSnapToWalkable(baseX+off[0],baseY+off[1],72)
  })
 }
 
@@ -3274,17 +3311,17 @@ function mazeDraw(){
 
  // Ranking ao vivo
  const list=mazeLeaderboard();
- const boxW=154,boxX=C.width-boxW-12,boxY=60;
+ const boxW=140,boxX=12,boxY=70;
  ctx.fillStyle="rgba(5,8,17,.90)";
- ctx.fillRect(boxX,boxY,boxW,18+Math.min(5,list.length)*18);
+ ctx.fillRect(boxX,boxY,boxW,20+Math.min(3,list.length)*17);
  ctx.strokeStyle="rgba(103,225,255,.28)";
- ctx.strokeRect(boxX,boxY,boxW,18+Math.min(5,list.length)*18);
+ ctx.strokeRect(boxX,boxY,boxW,20+Math.min(3,list.length)*17);
  ctx.textAlign="left";
  ctx.font="800 8px system-ui";ctx.fillStyle="#67e1ff";
- ctx.fillText("POSIÇÃO AO VIVO",boxX+8,boxY+12);
+ ctx.fillText("TOP 3 • AO VIVO",boxX+8,boxY+12);
 
- list.slice(0,5).forEach((x,i)=>{
-   const yy=boxY+29+i*18;
+ list.slice(0,3).forEach((x,i)=>{
+   const yy=boxY+29+i*17;
    ctx.font=x.p===me?"800 10px system-ui":"700 9px system-ui";
    ctx.fillStyle=x.p===me?"#ffd659":"#edf3ff";
    const suffix=x.finished>=0?" ✓":"";
@@ -3293,10 +3330,10 @@ function mazeDraw(){
 
  if(me&&me.alive){
    const pos=mazePlayerPosition();
-   ctx.textAlign="center";
-   ctx.font="800 10px system-ui";
+   ctx.textAlign="left";
+   ctx.font="800 9px system-ui";
    ctx.fillStyle="#ffd659";
-   ctx.fillText(`VOCÊ: ${pos}º`,C.width/2,62)
+   ctx.fillText(`VOCÊ: ${pos}º`,20,boxY+20+Math.min(3,list.length)*17+14)
  }
 
  // Countdown
