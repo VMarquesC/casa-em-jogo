@@ -568,7 +568,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.6.0");
+ toast("CASA EM JOGO • V1.6.1");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -1063,22 +1063,50 @@ function drawPerson(p){
 
  if(typeof LIVING!=="undefined"){
    const mood=livingMood(p);
-   ctx.font="11px system-ui";
-   ctx.textAlign="center";
-   ctx.fillStyle="rgba(15,20,30,.82)";
-   ctx.fillRect(p.x-13,p.y-31,26,14);
-   ctx.fillStyle="#fff";
-   ctx.fillText(mood,p.x,p.y-20);
-
    const thought=livingRecentThought(p);
+
+   // Humor pequeno, acima da cabeça, sem fundo.
+   ctx.save();
+   ctx.textAlign="center";
+   ctx.textBaseline="middle";
+   ctx.font="14px 'Segoe UI Emoji','Apple Color Emoji',system-ui";
+   ctx.globalAlpha=.94;
+   ctx.fillText(mood,p.x,p.y-42);
+
+   // Pensamento fica acima do emoji, com cápsula clara e discreta.
    if(thought && !p.human){
-     ctx.font="10px system-ui";
-     const w=Math.min(150,ctx.measureText(thought).width+14);
-     ctx.fillStyle="rgba(255,255,255,.93)";
-     ctx.fillRect(p.x-w/2,p.y-54,w,18);
-     ctx.fillStyle="#1f2937";
-     ctx.fillText(thought.length>24?thought.slice(0,23)+"…":thought,p.x,p.y-41);
+     const short=thought.length>28?thought.slice(0,27)+"…":thought;
+     ctx.font="9px system-ui";
+     const tw=Math.min(146,ctx.measureText(short).width+14);
+     const tx=p.x-tw/2,ty=p.y-70;
+
+     ctx.globalAlpha=.88;
+     ctx.fillStyle="rgba(255,255,255,.94)";
+     if(ctx.roundRect){
+       ctx.beginPath();ctx.roundRect(tx,ty,tw,18,7);ctx.fill()
+     }else ctx.fillRect(tx,ty,tw,18);
+
+     ctx.globalAlpha=1;
+     ctx.fillStyle="#172033";
+     ctx.fillText(short,p.x,ty+9);
    }
+
+   // Atividade curtinha abaixo do nome/sprite, só quando relevante.
+   const action=livingActionFor(p);
+   if(action && !p.human && action!=="observando" && action!=="passeando"){
+     const label=action.length>20?action.slice(0,19)+"…":action;
+     ctx.font="8px system-ui";
+     ctx.globalAlpha=.78;
+     ctx.fillStyle="rgba(8,12,22,.72)";
+     const aw=Math.min(112,ctx.measureText(label).width+12);
+     const ax=p.x-aw/2,ay=p.y+28;
+     if(ctx.roundRect){
+       ctx.beginPath();ctx.roundRect(ax,ay,aw,15,6);ctx.fill()
+     }else ctx.fillRect(ax,ay,aw,15);
+     ctx.globalAlpha=1;ctx.fillStyle="#eef4ff";
+     ctx.fillText(label,p.x,ay+7.5);
+   }
+   ctx.restore()
  }
 }
 function toggleCollisionDebug(){
@@ -1158,7 +1186,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.6.0] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.6.1] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
@@ -1318,16 +1346,27 @@ function realityPickChallengeWinner(type="lider"){
 
 
 function realityShowChallengeResult(type,winner){
- const ranking=(REALITY.lastChallengeRanking||[]).slice(0,4);
+ const ranking=(REALITY.lastChallengeRanking||[]).slice(0,5);
  const podium=ranking.map((x,i)=>`${i+1}º ${x.name} — ${x.score} pts`).join("\n");
- addFeed(`🏁 Resultado da Prova do ${type}: ${winner.name} venceu.`);
+
+ addFeed(`🏁 RESULTADO: ${winner.name} venceu a Prova do ${type}.`);
  if(typeof toast==="function")toast(`🏆 ${winner.name} venceu o ${type}!`);
- if(!winner.human && typeof modal==="function"){
+
+ realityAlive().forEach(p=>{
+   if(p===winner)return;
+   if(typeof livingThought==="function"){
+     const rel=realityRel(p,winner);
+     livingThought(p,rel>30?`${winner.name} ganhar me ajuda.`:`${winner.name} ficou mais forte.`)
+   }
+ });
+
+ if(typeof modal==="function"){
    modal(`🏆 ${winner.name.toUpperCase()} VENCEU!`,
-     `Prova do ${type}\n\n${podium}\n\n${winner.name} conquistou a vitória sem qualquer vantagem do player.`,
+     `PROVA DO ${type.toUpperCase()}\n\n${podium}\n\n${winner.name} conquistou a vitória.`,
      ["CONTINUAR"],closeModal)
  }
 }
+
 function realitySetLeader(p){
  REALITY.leader=p;
  REALITY._recentWinners=REALITY._recentWinners||[];
@@ -1656,6 +1695,7 @@ function livingDrama(){
    livingSetAction(b,`discutindo com ${a.name}`,9);
    addFeed(`🔥 TRETA: ${a.name} e ${b.name} começaram a discutir.`);
    showNpcBubble(a,`Eu não gostei do que você fez, ${b.name}.`);
+   livingReactToDrama(a,b);
    setTimeout(()=>showNpcBubble(b,"Então fala na minha cara!"),1500);
  }else{
    livingStartChat(a,b)
@@ -1683,24 +1723,133 @@ function livingReactToWinner(winner,type){
 function livingProfile(p){
  if(!p)return;
  const others=realityAlive().filter(x=>x!==p);
- const ally=[...others].sort((a,b)=>realityRel(p,b)-realityRel(p,a))[0];
- const rival=[...others].sort((a,b)=>realityRel(p,a)-realityRel(p,b))[0];
- const memories=(REALITY.memories.get(realityPersonKey(p))||[]).slice(0,3);
+ const ranked=[...others].sort((a,b)=>realityRel(p,b)-realityRel(p,a));
+ const ally=ranked[0], rival=ranked[ranked.length-1];
+ const memories=(REALITY.memories.get(realityPersonKey(p))||[]).slice(0,4);
+
+ const alliance=REALITY.alliances.find(a=>a.members.includes(p.name));
+ const immune=REALITY.immune.has(realityPersonKey(p));
+ const leader=REALITY.leader===p;
+ const angel=REALITY.angel===p;
+
+ const badges=[
+   leader?"👑 Líder":null,
+   angel?"😇 Anjo":null,
+   immune?"🛡️ Imune":null
+ ].filter(Boolean).join(" • ");
+
  const text=[
-  `Humor: ${livingMood(p)}`,
-  `Personalidade: ${realityTrait(p)}`,
-  `Atividade: ${livingActionFor(p)}`,
-  ally?`Mais próximo: ${ally.name}`:"",
-  rival?`Maior tensão: ${rival.name}`:"",
-  `Vitórias: ${p.wins||0}`,
-  memories.length?`\nÚltimos acontecimentos:\n• ${memories.join("\n• ")}`:""
+  `${livingMood(p)} Humor atual`,
+  `🎭 Personalidade: ${realityTrait(p)}`,
+  `🎬 Agora: ${livingActionFor(p)}`,
+  badges?`🏅 Status: ${badges}`:"",
+  `🏆 Vitórias em provas: ${p.wins||0}`,
+  ally?`🤝 Mais próximo: ${ally.name} (${livingRelationshipLabel(p,ally)})`:"",
+  rival?`⚡ Maior tensão: ${rival.name} (${livingRelationshipLabel(p,rival)})`:"",
+  alliance?`👥 Grupo conhecido: ${alliance.name}`:"",
+  memories.length?`\n📓 Memórias recentes:\n• ${memories.join("\n• ")}`:""
  ].filter(Boolean).join("\n");
+
  modal(`👤 ${p.name}`,text,["FECHAR"],closeModal)
+}
+
+function livingNearby(p,radius=95){
+ return realityAlive().filter(o=>o!==p&&Math.hypot(o.x-p.x,o.y-p.y)<=radius)
+}
+
+function livingGroupChat(){
+ const npcs=realityNPCs();
+ if(npcs.length<3)return;
+ const host=pick(npcs);
+ if(!host)return;
+
+ const near=livingNearby(host,130).filter(p=>!p.human);
+ let members=[host,...near.slice(0,3)];
+ if(members.length<3){
+   members=[host,...npcs.filter(p=>p!==host).slice(0,2)]
+ }
+ if(members.length<3)return;
+
+ const topic=pick([
+   "próxima votação","quem está forte","alianças da casa",
+   "quem está jogando dos dois lados","quem pode ganhar a próxima prova"
+ ])||"o jogo";
+
+ members.forEach((p,i)=>{
+   livingSetAction(p,`conversa em grupo`,9);
+   if(i===0)showNpcBubble(p,`Vamos falar sobre ${topic}.`);
+   else setTimeout(()=>showNpcBubble(p,
+     i===1?"Tenho uma teoria sobre isso.":"Eu ouvi uma coisa hoje..."
+   ),700*i)
+ });
+
+ // Pequenos efeitos reais nas relações.
+ for(let i=0;i<members.length;i++){
+   for(let j=i+1;j<members.length;j++){
+     realityChangeRel(members[i],members[j],Math.random()<.8?2:-2)
+   }
+ }
+ addFeed(`👥 ${members.map(p=>p.name).join(", ")} começaram uma conversa em grupo.`)
+}
+
+function livingReactToDrama(a,b){
+ const audience=realityAlive()
+   .filter(p=>p!==a&&p!==b&&Math.hypot(p.x-a.x,p.y-a.y)<145)
+   .slice(0,4);
+
+ audience.forEach((p,i)=>{
+   livingSetAction(p,"assistindo a treta",7);
+   livingThought(p,pick([
+     "Isso vai dar problema...",
+     "Eu sabia que isso ia acontecer.",
+     "Melhor eu não me meter.",
+     "Preciso lembrar disso para o jogo."
+   ])||"Eita...");
+   if(i===0)setTimeout(()=>showNpcBubble(p,"Eita..."),900)
+ })
+}
+
+function livingRelationshipLabel(a,b){
+ const r=realityRel(a,b);
+ if(r>=55)return "💚 aliado";
+ if(r>=25)return "🙂 próximo";
+ if(r<=-45)return "🔥 rival";
+ if(r<=-18)return "😒 tensão";
+ return "• neutro"
+}
+
+
+function livingSocialEvent(){
+ const npcs=realityNPCs();
+ if(npcs.length<2)return;
+
+ const type=Math.random();
+ if(type<.25){
+   const p=pick(npcs);
+   const target=pick(npcs.filter(x=>x!==p));
+   if(!p||!target)return;
+   realityChangeRel(p,target,8);
+   livingSetMood(p,"😊",`Teve uma boa conversa com ${target.name}.`);
+   livingSetMood(target,"🙂",`Se aproximou de ${p.name}.`);
+   addFeed(`💚 ${p.name} e ${target.name} ficaram mais próximos.`);
+ }else if(type<.5){
+   const p=pick(npcs);
+   livingSetMood(p,"😟","Está preocupado com a próxima votação.");
+   livingThought(p,"Acho que posso receber votos...");
+   addFeed(`😟 ${p.name} parece preocupado com o próximo paredão.`);
+ }else if(type<.7){
+   const p=pick(npcs);
+   livingSetMood(p,"😎","Está confiante no próprio jogo.");
+   livingThought(p,"Estou numa posição boa.");
+ }else{
+   realityShowGossip()
+ }
 }
 
 function livingTick(dt){
  LIVING._clock=(LIVING._clock||0)+dt;
  LIVING._actionClock=(LIVING._actionClock||0)+dt;
+ LIVING._eventClock=(LIVING._eventClock||0)+dt;
 
  if(LIVING._actionClock>7){
    LIVING._actionClock=0;
@@ -1716,7 +1865,12 @@ function livingTick(dt){
 
  if(LIVING._clock>16){
    LIVING._clock=0;
-   if(Math.random()<.48)livingDrama()
+   if(Math.random()<.34)livingDrama(); else if(Math.random()<.42)livingGroupChat()
+ }
+
+ if(LIVING._eventClock>20){
+   LIVING._eventClock=0;
+   if(Math.random()<.65)livingSocialEvent()
  }
 }
 

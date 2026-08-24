@@ -100,3 +100,23 @@ button:active{transform:scale(.97)}
  background:radial-gradient(circle,rgba(34,211,238,.16),transparent 70%);
  pointer-events:none;
 }
+
+
+/* ===== V1.6.1 NPC VISUAL CLEANUP ===== */
+#dialogue,#modal{
+ backdrop-filter:blur(16px);
+}
+#players .playerRow,#players .player-card{
+ transition:transform .14s ease,background .14s ease,border-color .14s ease;
+}
+#players .playerRow:hover,#players .player-card:hover{
+ transform:translateX(2px);
+ background:rgba(255,255,255,.075);
+ border-color:rgba(255,255,255,.18);
+}
+#feed{
+ line-height:1.42;
+}
+#event{
+ min-height:20px;
+}
