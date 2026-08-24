@@ -1,84 +1,52 @@
-# Direção multiplayer
+# Multiplayer
 
-O multiplayer deve ser construído sem transformar o navegador do jogador na autoridade das regras.
+A ideia para o multiplayer é manter o jogo simples no começo e ir aumentando aos poucos.
 
-## Cliente
+## Primeira etapa
 
-Responsável principalmente por:
+O básico seria ter uma sala com vários jogadores entrando na mesma casa e conseguindo se movimentar ao mesmo tempo.
 
-- teclado/controle;
-- câmera;
-- renderização do mapa;
-- animações;
-- interface;
-- chat enviado pelo jogador;
-- efeitos visuais e áudio.
+Depois disso entram:
 
-## Servidor
+- chat;
+- emotes;
+- votação;
+- líder e imunidade;
+- festas;
+- provas online;
+- eliminação.
 
-Responsável por validar e distribuir:
+## Como pretendo organizar
 
-- jogadores conectados;
-- sala/temporada;
-- posições válidas;
-- fase atual;
-- Líder e imunidade;
+O navegador vai continuar cuidando da parte visual do jogo, como mapa, interface, animações e controles.
+
+Já as regras importantes da partida precisam ficar no servidor, principalmente:
+
+- quem está conectado;
+- quem é o líder;
+- quem está imune;
 - votos;
-- eliminações;
-- início e fim das provas;
 - cronômetros;
-- vencedor das provas.
+- vencedores das provas;
+- eliminações.
 
-## Comunicação
+Isso evita que cada jogador tenha uma versão diferente da partida.
 
-WebSocket é uma opção adequada para sincronização em tempo real. Uma mensagem futura pode seguir um formato semelhante a:
+## NPCs
 
-```json
-{
-  "type": "player:move",
-  "playerId": "p_123",
-  "x": 420,
-  "y": 280,
-  "animState": "walk"
-}
-```
+Os NPCs ainda podem continuar úteis no multiplayer. Se uma sala tiver 8 vagas e entrarem só 5 pessoas, por exemplo, as outras 3 vagas podem ser preenchidas por bots.
 
-Eventos de regra devem ser confirmados pelo servidor antes de se tornarem oficiais.
+A ideia é que jogador real e NPC usem a mesma estrutura de personagem. A diferença fica só em quem controla as ações.
 
-## Salas híbridas
+## Ordem que quero testar
 
-Objetivo futuro:
+1. criar lobby;
+2. entrar em uma sala;
+3. mostrar outros jogadores no mapa;
+4. sincronizar movimentação;
+5. adicionar chat;
+6. sincronizar o reality;
+7. adaptar as provas;
+8. tratar desconexão e reconexão.
 
-```text
-8 vagas
-├── jogadores reais
-└── bots preenchendo vagas vazias
-```
-
-Bots e jogadores devem compartilhar a mesma representação de participante sempre que possível. O que muda é quem fornece as decisões e posições.
-
-## Segurança básica
-
-Nunca confiar no cliente para ações como:
-
-```text
-"eu ganhei a prova"
-"eu sou o líder"
-"meu voto vale 100"
-"meu personagem está nesta posição impossível"
-```
-
-O cliente pede; o servidor valida; o servidor atualiza a partida.
-
-## Ordem recomendada
-
-1. lobby e salas;
-2. conexão WebSocket;
-3. jogadores remotos aparecendo na casa;
-4. posição/animação;
-5. chat;
-6. estado semanal;
-7. votação;
-8. festas;
-9. provas sincronizadas;
-10. reconexão e tratamento de abandono.
+Ainda é uma ideia para uma próxima fase do projeto, então essa estrutura pode mudar conforme eu for testando.
