@@ -219,6 +219,7 @@ document.querySelector("#relBtn").onclick=showRelationships;
 document.querySelector("#collisionBtn").onclick=toggleCollisionDebug;
 document.querySelector("#npcDebugBtn").onclick=showNpcDebug;
 document.querySelector("#powersBtn").onclick=showPowers;document.querySelector("#missionsBtn").onclick=showMission;document.querySelector("#profileBtn").onclick=showProfile;document.querySelector("#howBtn").onclick=showHowTo;document.querySelector("#modalClose").onclick=()=>{if(phase==="social")closeModal()};
+const keys=Object.create(null);
 addEventListener("keydown",e=>{
  const k=e.key.toLowerCase();
  if(k===" " && dialogueOpen){e.preventDefault();advanceDialogue();return}
@@ -386,7 +387,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa e portais concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.1.5");
+ toast("CASA EM JOGO • V1.1.6");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -833,7 +834,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.1.5] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.1.6] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
