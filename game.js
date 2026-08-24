@@ -568,7 +568,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.9.0");
+ toast("CASA EM JOGO • V1.9.1");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -1195,7 +1195,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.9.0] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.9.1] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
@@ -2755,6 +2755,7 @@ function mazeStartPoints(){
  return pts
 }
 function mazeEnter(){
+ try{closeModal()}catch(e){}
  if(MAZE.active)return;
  MAZE.active=true;MAZE.finished=false;MAZE.winner=null;MAZE.timeLeft=240;
  phase="maze";REALITY.phase="Prova do Líder — Labirinto";
@@ -2872,12 +2873,63 @@ function mazeDraw(){
  return true
 }
 function mazeStartChallenge(){
+ if(MAZE.active)return;
+
  if(!MAZE.mapReady||!MAZE.maskReady){
   eventLog("🧩 Carregando arena do Labirinto...",6);
   return setTimeout(mazeStartChallenge,300)
  }
+
+ let launched=false;
+ const launch=()=>{
+   if(launched||MAZE.active)return;
+   launched=true;
+   try{closeModal()}catch(e){}
+   mazeEnter()
+ };
+
  modal("🧩 PROVA DO LÍDER — LABIRINTO",
    "Todos os participantes irão para a arena.\n\nEncontre a SAÍDA antes dos outros.\n\n⏱️ Vocês têm 4 minutos.\nSe ninguém chegar, todos perdem a prova.",
-   ["IR PARA A ARENA"],()=>{closeModal();mazeEnter()})
-}
+   ["IR PARA A ARENA"],
+   choice=>{
+     // O sistema de modal passa o texto da opção escolhida.
+     if(!choice||choice==="IR PARA A ARENA")launch()
+   });
 
+ // Fallback defensivo: alguns layouts antigos do modal sobrescrevem onclick.
+ // Reaplica o clique diretamente nos botões gerados.
+ setTimeout(()=>{
+   const choices=document.querySelector("#choices");
+   if(!choices)return;
+   [...choices.querySelectorAll("button")].forEach(btn=>{
+     if((btn.textContent||"").trim()==="IR PARA A ARENA"){
+       btn.onclick=ev=>{
+         ev.preventDefault();
+         ev.stopPropagation();
+         launch()
+       }
+     }
+   })
+ },0);
+
+ // Tecla Enter também inicia, evitando soft-lock por UI.
+ const enterHandler=ev=>{
+   if(!launched && !MAZE.active && ev.key==="Enter"){
+     document.removeEventListener("keydown",enterHandler);
+     launch()
+   }
+ };
+ document.addEventListener("keydown",enterHandler);
+
+ // Safety timeout: se o modal ficar aberto por falha de DOM, não trava a partida para sempre.
+ setTimeout(()=>{
+   if(!launched && !MAZE.active){
+     const modalEl=document.querySelector("#modal");
+     const stillOpen=modalEl && !modalEl.classList.contains("hidden");
+     if(stillOpen){
+       addFeed("⚠️ O botão da arena não respondeu. Iniciando a prova automaticamente.");
+       launch()
+     }
+   }
+ },12000)
+}
