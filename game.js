@@ -10,6 +10,11 @@ let mapReady=false,mapFailed=false;
 map.onload=()=>{mapReady=true;mapFailed=false;console.log("[Casa em Jogo] cenário carregado:",map.naturalWidth,map.naturalHeight)};
 map.onerror=()=>{mapReady=false;mapFailed=true;console.error("[Casa em Jogo] falha ao carregar o cenário")};
 map.src="assets/cenario_casa.png";
+const ARENA_IMAGES={};
+["reflexo","memoria","resistencia","cores","caixas"].forEach(key=>{
+ const im=new Image();im.src=`assets/arenas/${key}.png`;ARENA_IMAGES[key]=im
+});
+
 const BOT_NAMES=["Luna","Caio","Bia","Noah","Maya","Davi","Nina"];
 const COLORS=["#57c7ff","#ff6b8a","#ffd166","#8ee493","#c89bff","#ff9f68","#67e8d0","#f3f4f6"];
 const moods=["Conversando","Desconfiado","Planejando","Relaxando","Observando","Fofocando"];
@@ -114,6 +119,17 @@ const PORTALS=[
  {name:"Lounge",roomA:"LOUNGE",ax:676,ay:595,roomB:"HALL",bx:596,by:562},
  {name:"Confessionário",roomA:"CONFESSIONÁRIO",ax:916,ay:690,roomB:"LOUNGE",bx:735,by:690}
 ];
+const AUTO_PASSAGES=[
+ {aRoom:"COZINHA",ax:273,ay:372,bRoom:"SALA",bx:394,by:372},
+ {aRoom:"SALA",ax:394,ay:457,bRoom:"HALL",bx:443,by:494},
+ {aRoom:"HALL",ax:455,ay:625,bRoom:"PÁTIO / PISCINA",bx:455,by:631},
+ {aRoom:"HALL",ax:529,ay:494,bRoom:"CORREDOR",bx:632,by:455},
+ {aRoom:"CORREDOR",ax:776,ay:383,bRoom:"QUARTO",bx:806,by:311},
+ {aRoom:"CORREDOR",ax:668,ay:455,bRoom:"LOUNGE",bx:671,by:593},
+ {aRoom:"LOUNGE",ax:713,ay:593,bRoom:"CONFESSIONÁRIO",bx:856,by:591},
+ {aRoom:"COZINHA",ax:235,ay:342,bRoom:"DESPENSA",bx:277,by:191}
+];
+
 
 const PLAYER_RADIUS=10;
 let collisionDebug=false;
@@ -198,6 +214,92 @@ function safePoint(roomName,ignoreActor=null){
  };
  return fallback[roomName]||[405,286]
 }
+
+function tryAutoPassage(p){
+ if(!p||passageCd>0||phase!=="social"||autoConfession)return false;
+ const room=roomAt(p.x,p.y);
+ let best=null,bd=23;
+ for(const door of AUTO_PASSAGES){
+  for(const side of [
+   {room:door.aRoom,x:door.ax,y:door.ay,tx:door.bx,ty:door.by,target:door.bRoom},
+   {room:door.bRoom,x:door.bx,y:door.by,tx:door.ax,ty:door.ay,target:door.aRoom}
+  ]){
+   if(room!==side.room)continue;
+   const d=Math.hypot(p.x-side.x,p.y-side.y);
+   if(d<bd){bd=d;best=side}
+  }
+ }
+ if(!best)return false;
+ let tx=best.tx,ty=best.ty;
+ if(!pointInFloors(tx,ty)||staticBlocked(tx,ty,8)){
+  const safe=safePoint(best.target,p);tx=safe[0];ty=safe[1]
+ }
+ p.x=tx;p.y=ty;p.tx=tx;p.ty=ty;p.zone=best.target;
+ passageCd=.8;toast(`🚪 ${best.target}`);return true
+}
+
+function callToConfessional(){
+ if(!gameStarted||phase!=="social"||!me||!me.alive||uiBlocking())return;
+ confessionCallCd=rnd(65,95);
+ addFeed(`📢 Produção chamou ${me.name} ao Confessionário.`);
+ modal("📢 CHAMADA DA PRODUÇÃO",`${me.name}, vá ao Confessionário. A câmera está esperando você.`,["IR AGORA"],()=>{
+  closeModal();startConfessionalTravel()
+ })
+}
+
+function startConfessionalTravel(){
+ if(!me||!me.alive)return;
+ me.x=918;me.y=703;me.tx=918;me.ty=703;me.facing="up";
+ autoConfession={x:918,y:610};
+ passageCd=1.2;eventName="📢 Indo ao Confessionário";
+ toast("📺 PRODUÇÃO CHAMOU VOCÊ")
+}
+
+function updateConfessionalTravel(dt){
+ if(!autoConfession||!me)return false;
+ const dx=autoConfession.x-me.x,dy=autoConfession.y-me.y,d=Math.hypot(dx,dy);
+ if(d<5){
+  me.x=autoConfession.x;me.y=autoConfession.y;me.facing="left";
+  autoConfession=null;eventName="";
+  setTimeout(()=>confession(),220);
+  return true
+ }
+ const step=Math.min(95*dt,d),vx=dx/(d||1),vy=dy/(d||1);
+ me.facing=Math.abs(vx)>Math.abs(vy)?(vx>0?"right":"left"):(vy>0?"down":"up");
+ me.walkFrame=(me.walkFrame+dt*6)%4;
+ const nx=me.x+vx*step,ny=me.y+vy*step;
+ if(canMoveStatic(nx,ny,PLAYER_RADIUS)){me.x=nx;me.y=ny}
+ else{
+  if(canMoveStatic(nx,me.y,PLAYER_RADIUS))me.x=nx;
+  if(canMoveStatic(me.x,ny,PLAYER_RADIUS))me.y=ny
+ }
+ return true
+}
+
+function snapshotHomePositions(){
+ homePositions=new Map();
+ people.filter(p=>p.alive).forEach(p=>homePositions.set(p.name,{x:p.x,y:p.y,facing:p.facing}))
+}
+
+function enterChallengeArena(key){
+ snapshotHomePositions();challengeArenaKey=key||"reflexo";
+ const slots=[[131,520],[247,520],[363,520],[479,520],[595,520],[711,520],[827,520],[943,520]];
+ alivePeople().forEach((p,i)=>{
+  const s=slots[i%slots.length];p.x=s[0];p.y=s[1];p.tx=p.x;p.ty=p.y;p.facing="up";p.path=[];p.pathIndex=0
+ });
+ eventName="🏟️ Arena da Prova"
+}
+
+function returnHomeFromChallenge(){
+ if(homePositions){
+  people.filter(p=>p.alive).forEach(p=>{
+   const h=homePositions.get(p.name);
+   if(h){p.x=h.x;p.y=h.y;p.tx=h.x;p.ty=h.y;p.facing=h.facing||"down";p.path=[];p.pathIndex=0}
+  })
+ }
+ homePositions=null;challengeArenaKey="";eventName="";
+ toast("🏠 TODOS DE VOLTA À CASA")
+}
 function nearestPortal(p){
  if(!p)return null;
  let best=null,bd=36;
@@ -230,6 +332,9 @@ console.log("[Casa em Jogo] script inicializado");document.documentElement.datas
 document.querySelectorAll(".trait").forEach(b=>b.onclick=()=>{document.querySelectorAll(".trait").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");trait=b.dataset.trait;updateStartPreview()});document.querySelector("#name").addEventListener("input",updateStartPreview);
 COLORS.slice(0,7).forEach((c,i)=>{let b=document.createElement("button");b.className="color"+(i===0?" selected":"");b.style.background=c;b.onclick=()=>{document.querySelectorAll(".color").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");playerColor=c};document.querySelector("#colors").appendChild(b)});
 let gameStarted=false,animationFrameId=null,loopErrorCount=0,lastFatalAt=0;
+let passageCd=0,confessionCallCd=40,autoConfession=null;
+let homePositions=null,challengeArenaKey="";
+
 document.querySelector("#play").onclick=()=>{
  if(gameStarted)return;
  const btn=document.querySelector("#play");
@@ -239,12 +344,24 @@ document.querySelector("#play").onclick=()=>{
    start();
    gameStarted=true;
  }catch(err){
-   gameStarted=false;
    console.error("Falha ao iniciar a partida:",err);
    btn.disabled=false;btn.innerHTML="<span>TENTAR NOVAMENTE</span><b>▶</b>";
    showFatalError("Não foi possível iniciar a partida",err);
  }
 };
+
+function showNpcDebug(){
+ if(!gameStarted||!Array.isArray(people)){
+  return modal("🤖 ESTADO DOS NPCs","Entre na casa para inspecionar os NPCs.",["FECHAR"],closeModal)
+ }
+ const bots=people.filter(p=>p&&!p.human);
+ const text=bots.map(p=>{
+  const len=Array.isArray(p.path)?p.path.length:0;
+  const idx=Number.isInteger(p.pathIndex)?p.pathIndex:0;
+  return `${p.name||"NPC"}: ${roomAt(p.x,p.y)} • ${p.activity||"sem atividade"} • rota ${Math.max(0,len-idx)} • x${Math.round(p.x)} y${Math.round(p.y)}`
+ }).join("\n");
+ modal("🤖 ESTADO DOS NPCs",text||"Nenhum NPC ativo.",["FECHAR"],closeModal)
+}
 document.querySelector("#musicBtn").onclick=toggleMusic;
 document.querySelector("#gossipBtn").onclick=showGossip;
 document.querySelector("#relBtn").onclick=showRelationships;
@@ -318,16 +435,6 @@ function findPath(sx,sy,tx,ty,who=null,maxNodes=1800){
  return []
 }
 
-function reachablePointFor(p,roomName,tries=30){
- for(let i=0;i<tries;i++){
-  const target=safePoint(roomName,p);
-  if(!target)continue;
-  const path=findPath(p.x,p.y,target[0],target[1],p,1200);
-  if(path.length)return {target,path}
- }
- return null
-}
-
 function chooseNpcDestination(p){
  const room=roomAt(p.x,p.y);
  const sameRoom=people.filter(o=>o!==p&&o.alive&&roomAt(o.x,o.y)===room);
@@ -339,11 +446,9 @@ function chooseNpcDestination(p){
   p.activity=Math.random()<.5?"conversando":"fofocando";
   p.socialTarget=other.name
  }else{
-  const reachable=reachablePointFor(p,room,24);
-  target=reachable?reachable.target:safePoint(room,p);
+  target=safePoint(room,p);
   p.activity=pick(["passeando","observando","descansando"])||"observando";
-  p.socialTarget=null;
-  if(reachable){p.path=reachable.path;p.pathIndex=0;p.repathCd=rnd(3,6);return}
+  p.socialTarget=null
  }
 
  p.path=findPath(p.x,p.y,target[0],target[1],p);
@@ -401,7 +506,7 @@ function start(){
  gameStarted=true;
  const name=document.querySelector("#name").value.trim()||"Jogador";
  // reset completo para impedir estado parcial caso o usuário tente iniciar novamente
- phase="social";round=1;time=70;feed=[];leader="";immune="";eventName="";near=null;doorNear=null;dialogueOpen=false;currentDialogue=null;if(typingTimer){clearInterval(typingTimer);typingTimer=null}document.querySelector("#dialogue").classList.add("hidden");closeModal();
+ phase="social";round=1;time=70;confessionCallCd=38;autoConfession=null;homePositions=null;challengeArenaKey="";feed=[];leader="";immune="";eventName="";near=null;doorNear=null;dialogueOpen=false;currentDialogue=null;if(typingTimer){clearInterval(typingTimer);typingTimer=null}document.querySelector("#dialogue").classList.add("hidden");closeModal();
  alliances=[];gossips=[];relationship={};eventCd=18;actionCd=0;roomActionCd=0;challenge=0;
  stats={energy:100,social:50,rep:50,coins:500};
  if(trait==="Social")stats.social=62;
@@ -440,7 +545,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.2.4");
+ toast("CASA EM JOGO • V1.3.0");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -484,8 +589,8 @@ function showFatalError(title,err){
 function modalOpen(){return !document.querySelector("#modal").classList.contains("hidden")}
 function uiBlocking(){return dialogueOpen||modalOpen()}
 function update(dt){
- actionCd=Math.max(0,actionCd-dt);roomActionCd=Math.max(0,roomActionCd-dt);stats.energy=Math.max(0,stats.energy-dt*.09);if(!uiBlocking())eventCd=Math.max(-1,eventCd-dt);
- if(me.alive && !uiBlocking()){
+ actionCd=Math.max(0,actionCd-dt);roomActionCd=Math.max(0,roomActionCd-dt);passageCd=Math.max(0,passageCd-dt);stats.energy=Math.max(0,stats.energy-dt*.09);if(!uiBlocking())eventCd=Math.max(-1,eventCd-dt);
+ if(me.alive && autoConfession){updateConfessionalTravel(dt)}else if(me.alive && !uiBlocking()){
    let dx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);
    let dy=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);
    const moving=dx||dy;
@@ -500,10 +605,15 @@ function update(dt){
    tryMovePlayer(nx,me.y);
    const ny=me.y+dy*speed*dt;
    tryMovePlayer(me.x,ny);
+   if(moving)tryAutoPassage(me);
  }
  if(!uiBlocking())updateBots(dt);
  near=me?findNear():null;doorNear=me?nearestPortal(me):null;
  if(eventCd<=0 && !uiBlocking() && phase==="social"){randomEvent();eventCd=rnd(19,31)}
+ if(phase==="social"&&!uiBlocking()&&!autoConfession){
+  confessionCallCd=Math.max(-1,confessionCallCd-dt);
+  if(confessionCallCd<=0)callToConfessional()
+ }
  if(!uiBlocking()){time-=dt;if(time<=0)startChallenge()}
 }
 function updateBots(dt){
@@ -697,7 +807,7 @@ function showDialogue(name,color,text,choices=[]){
  const portrait=document.querySelector("#portrait");if(portrait)portrait.style.setProperty("--pc",color||"#57c7ff");
  const key=(name===me?.name?"theo":name.toLowerCase());
  const portraitImg=document.querySelector("#portraitImg");if(portraitImg)portraitImg.src=`assets/portraits/${SPRITES[key]?key:"theo"}.png`;
- const choiceBox=document.querySelector("#dialogueChoices");if(choiceBox)choiceBox.innerHTML="";
+ const q=document.querySelector("#dialogueChoices");if(q)q.innerHTML="";
  const hint=document.querySelector("#dialogueHint");if(hint)hint.style.display=choices.length?"none":"block";
  typeDialogue(text,()=>finishDialogueTyping())
 }
@@ -743,7 +853,6 @@ function closeDialogue(){
  if(q)q.innerHTML=""
 }
 function showRelationships(){
- if(!relationship||typeof relationship!=="object")relationship={};
  if(!gameStarted||!me)return modal("🤝 RELAÇÕES","Entre na casa para ver suas relações.",["FECHAR"],closeModal);
  const lines=Object.entries(relationship).map(([n,r])=>`${n}: confiança ${r.trust} • afinidade ${r.affinity} • suspeita ${r.suspicion}`);
  modal("🤝 RELAÇÕES",lines.join("\n\n")||"Sem relações registradas.",["FECHAR"],closeModal)
@@ -762,7 +871,7 @@ function saveConfession(text){
  gossips.unshift(text);closeDialogue();addFeed("🎥 Um depoimento anônimo foi gravado no confessionário.");
  setTimeout(()=>addFeed(`📺 FOFOCA DA CASA: "${text}"`),900)
 }
-function showGossip(){if(!Array.isArray(gossips))gossips=[];modal("📺 CENTRAL DE FOFOCAS",gossips.length?gossips.slice(0,6).map((g,i)=>`${i+1}. ${g}`).join("\n\n"):"Ainda não há fofocas registradas.",["FECHAR"],closeModal)}
+function showGossip(){modal("📺 CENTRAL DE FOFOCAS",gossips.length?gossips.slice(0,6).map((g,i)=>`${i+1}. ${g}`).join("\n\n"):"Ainda não há fofocas registradas.",["FECHAR"],closeModal)}
 
 function randomEvent(){
  const events=[
@@ -780,16 +889,40 @@ function randomEvent(){
  let e=pick(events);if(!e)return;if(!Array.isArray(gossips))gossips=[];eventName=e[0];addFeed(`${e[0]} ${e[1]}`);toast(e[0]);if(e[0].includes("TELEFONE"))grantPower(pick(["Voto Duplo","Escudo Secreto","Espião","Moedas"]));if(e[0].includes("PODER SECRETO"))grantPower(pick(["Voto Duplo","Espião","Moedas"]));if(Math.random()<.45)gossips.unshift(e[1]);setTimeout(()=>eventName="",5500)
 }
 
-function startChallenge(){if(phase!=="social")return;phase="challenge";challenge=(challenge+1)%5;if(challenge===0)return reaction();if(challenge===1)return memory();if(challenge===2)return resistance();if(challenge===3)return colors();return boxes()}
+function startChallenge(){
+ if(phase!=="social")return;
+ phase="challenge";challenge=(challenge+1)%5;
+ const arenaKeys=["reflexo","memoria","resistencia","cores","caixas"];
+ enterChallengeArena(arenaKeys[challenge]||"reflexo");
+ if(challenge===0)return reaction();
+ if(challenge===1)return memory();
+ if(challenge===2)return resistance();
+ if(challenge===3)return colors();
+ return boxes()
+}
+
 function reaction(){let target=Math.floor(rnd(450,900));if(!Number.isFinite(target))target=650;modal("⚡ PROVA DO REFLEXO",`Clique aproximadamente ${target} ms depois do sinal.`,["COMEÇAR"],()=>{let q=document.querySelector("#choices");q.innerHTML="";document.querySelector("#modalText").textContent="Prepare-se...";setTimeout(()=>{let b=document.createElement("button");b.className="choice";b.textContent="🟢 AGORA!";q.appendChild(b);let s=performance.now();b.onclick=()=>resolve(Math.abs(performance.now()-s-target),"Reflexo")},rnd(700,1600))})}
 function memory(){let seq=Array.from({length:5},()=>pick(["⭐","❤️","🌙","💎","🍀"]));modal("🧠 PROVA DA MEMÓRIA","Memorize:\n\n"+seq.join("  "),["MEMORIZEI"],()=>{let correct=seq.join("");let opts=[correct,[...seq].reverse().join(""),[...seq].sort(()=>Math.random()-.5).join("")];opts=[...new Set(opts)].sort(()=>Math.random()-.5);modal("🧠 QUAL ERA?", "Escolha a sequência correta.",opts,c=>resolve(c===correct?rnd(20,80):rnd(380,650),"Memória"))})}
 function resistance(){let clicks=0,start=performance.now();modal("💪 PROVA DE RESISTÊNCIA","Clique 20 vezes o mais rápido possível.",["COMEÇAR"],()=>{let q=document.querySelector("#choices");q.innerHTML="";let b=document.createElement("button");b.className="choice";b.textContent="CLIQUE! 0/20";q.appendChild(b);start=performance.now();b.onclick=()=>{clicks++;b.textContent=`CLIQUE! ${clicks}/20`;if(clicks>=20)resolve((performance.now()-start)/10,"Resistência")}})}
 function colors(){let answer=pick(["VERMELHO","AZUL","VERDE","AMARELO"]);let display=pick(["VERMELHO","AZUL","VERDE","AMARELO"]);modal("🎨 PROVA DAS CORES",`A palavra sorteada é: ${answer}\nEscolha a resposta correta.`,["VERMELHO","AZUL","VERDE","AMARELO"],c=>resolve(c===answer?rnd(20,80):rnd(350,600),"Cores"))}
 function boxes(){modal("🎁 PROVA DAS CAIXAS","Escolha uma caixa. Sorte também faz parte do jogo.",["📦 1","📦 2","📦 3","📦 4"],()=>resolve(rnd(0,480),"Caixas"))}
 function resolve(score,type){
- closeModal();let alive=alivePeople();let scores=alive.filter(p=>p!==me).map(p=>({p,score:rnd(45,450)}));scores.push({p:me,score});scores.sort((a,b)=>a.score-b.score);leader=scores[0].p.name;scores[0].p.wins++;stats.coins+=leader===me.name?150:25;
- addFeed(`🏆 ${leader} venceu a Prova de ${type}.`);toast(`👑 ${leader.toUpperCase()} É O CHEFE`);selectImmunity()
+ closeModal();
+ const alive=alivePeople(),safeScore=Number.isFinite(score)?score:9999;
+ const scores=alive.filter(p=>p!==me).map(p=>({p,score:rnd(45,450)}));
+ if(me&&me.alive)scores.push({p:me,score:safeScore});
+ if(!scores.length){returnHomeFromChallenge();return finishRoundSafely()}
+ scores.sort((a,b)=>a.score-b.score);
+ const winner=scores[0]?.p;
+ if(!winner){returnHomeFromChallenge();return finishRoundSafely()}
+ leader=winner.name;winner.wins=(winner.wins||0)+1;
+ stats.coins+=leader===me?.name?150:25;
+ addFeed(`🏆 ${leader} venceu a Prova de ${type}.`);
+ toast(`👑 ${leader.toUpperCase()} É O CHEFE`);
+ returnHomeFromChallenge();
+ setTimeout(()=>selectImmunity(),450)
 }
+
 function selectImmunity(){
  const alive=alivePeople();
  if(alive.length<=3)return final();
@@ -822,6 +955,7 @@ function vote(target){
  return eliminate(risk[0],tally)
 }
 function finishRoundSafely(){
+ if(homePositions)returnHomeFromChallenge();
  closeModal();
  if(alivePeople().length<=3)return final();
  round++;time=70;phase="social";leader="";immune="";eventName="";
@@ -865,7 +999,11 @@ function final(){
 }
 function draw(){
  ctx.clearRect(0,0,C.width,C.height);
- if(mapReady && map.naturalWidth>0){
+ if(phase==="challenge"&&challengeArenaKey){
+   const arena=ARENA_IMAGES[challengeArenaKey];
+   if(arena&&arena.naturalWidth>0)ctx.drawImage(arena,0,0,1024,765);
+   else{ctx.fillStyle="#111827";ctx.fillRect(0,0,1024,765)}
+ }else if(mapReady && map.naturalWidth>0){
    ctx.drawImage(map,0,0,1024,765)
  }else{
    ctx.fillStyle="#101827";ctx.fillRect(0,0,1024,765);
@@ -877,8 +1015,8 @@ function draw(){
  }
  // leve sombra atrás dos personagens para integrá-los ao cenário
  people.filter(p=>p.alive).forEach(drawPerson);
- if(near){ctx.save();ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.setLineDash([4,4]);ctx.beginPath();ctx.arc(near.x,near.y,25,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle="#fff";ctx.font="bold 11px system-ui";ctx.textAlign="center";ctx.fillText("E • conversar",near.x,near.y-34);ctx.restore()}
- if(me&&doorNear&&!near){ctx.save();ctx.fillStyle="#07101ddd";ctx.strokeStyle="#52d5ff";ctx.lineWidth=1;ctx.fillRect(me.x-63,me.y-47,126,22);ctx.strokeRect(me.x-63,me.y-47,126,22);ctx.fillStyle="#fff";ctx.font="bold 10px system-ui";ctx.textAlign="center";ctx.fillText("F • usar porta",me.x,me.y-32);ctx.restore()}
+ if(phase==="social"&&near){ctx.save();ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.setLineDash([4,4]);ctx.beginPath();ctx.arc(near.x,near.y,25,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle="#fff";ctx.font="bold 11px system-ui";ctx.textAlign="center";ctx.fillText("E • conversar",near.x,near.y-34);ctx.restore()}
+ if(phase==="social"&&me&&doorNear&&!near){ctx.save();ctx.fillStyle="#07101ddd";ctx.strokeStyle="#52d5ff";ctx.lineWidth=1;ctx.fillRect(me.x-63,me.y-47,126,22);ctx.strokeRect(me.x-63,me.y-47,126,22);ctx.fillStyle="#fff";ctx.font="bold 10px system-ui";ctx.textAlign="center";ctx.fillText("F • usar porta",me.x,me.y-32);ctx.restore()}
  if(collisionDebug)drawCollisionDebug();
 }
 function drawPerson(p){
@@ -968,26 +1106,17 @@ function runSelfTest(){
 
  people.filter(p=>!p.human).forEach(p=>{
   const room=roomAt(p.x,p.y);
-  const reachable=reachablePointFor(p,room,30);
-  if(!reachable)issues.push(`${p.name} sem rota local em ${room}`)
+  const dest=safePoint(room,p);
+  const path=findPath(p.x,p.y,dest[0],dest[1],p,1200);
+  if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.2.4] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.3.0] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
-function showNpcDebug(){
- if(!gameStarted)return modal("🤖 ESTADO DOS NPCs","Entre na casa para inspecionar os NPCs.",["FECHAR"],closeModal);
- const bots=people.filter(p=>!p.human);
- const text=bots.map(p=>{
-  const remaining=Math.max(0,(Array.isArray(p.path)?p.path.length:0)-(Number.isInteger(p.pathIndex)?p.pathIndex:0));
-  return `${p.name}: ${roomAt(p.x,p.y)} • ${p.activity||"sem atividade"} • rota ${remaining} • x${Math.round(p.x)} y${Math.round(p.y)}`
- }).join("\n");
- modal("🤖 ESTADO DOS NPCs",text||"Nenhum NPC ativo.",["FECHAR"],closeModal)
-}
-
 function normalizeStats(){if(!stats||typeof stats!=="object")stats={energy:100,social:50,rep:50,coins:0};stats.energy=Math.max(0,Math.min(115,Number.isFinite(stats.energy)?stats.energy:0));stats.social=Math.max(0,Math.min(100,Number.isFinite(stats.social)?stats.social:0));stats.rep=Math.max(0,Math.min(100,Number.isFinite(stats.rep)?stats.rep:0));stats.coins=Math.max(0,Number.isFinite(stats.coins)?stats.coins:0)}
-function ui(){if(!me)return;normalizeStats();document.querySelector("#energy").textContent=Math.round(stats.energy);document.querySelector("#social").textContent=Math.round(stats.social);document.querySelector("#rep").textContent=Math.round(stats.rep);document.querySelector("#coins").textContent=Math.round(stats.coins);document.querySelector("#roomBadge").textContent=roomAt(me.x,me.y)+(collisionDebug?" • DEBUG":"");const mc=activeMission?Math.min(activeMission.goal,missionCurrent()):0;document.querySelector("#missionShort").textContent=activeMission?`${activeMission.text} ${mc}/${activeMission.goal}`:"Sem missão";document.querySelector("#round").textContent=`RODADA ${round} • ${phase==="social"?"CONVIVÊNCIA":phase==="challenge"?"PROVA":"CERIMÔNIA"}`;document.querySelector("#timer").textContent=phase==="social"?`${String(Math.floor(Math.max(0,time)/60)).padStart(2,"0")}:${String(Math.ceil(Math.max(0,time)%60)).padStart(2,"0")}`:"EVENTO";document.querySelector("#event").textContent=eventName||(phase==="social"?"Convivência livre":"Evento em andamento");const night=round%3===0;document.querySelector("#dayLabel").textContent=`DIA ${round} ${night?"🌙":"☀️"}`;document.querySelector("#dayOverlay").style.opacity=night?".23":"0";document.querySelector("#players").innerHTML=people.map(p=>{const rel=relationship&&relationship[p.name],key=p.human?"theo":String(p.name||"npc").toLowerCase(),r=p===me?"Você":(rel?`🤝${rel.trust} 👁${rel.suspicion}`:"");return `<div class="person ${p.alive?"":"dead"}"><img src="assets/portraits/${key}.png"><div><span class="pname">${p.name}</span><span class="pmeta">${p.alive?(p.human?p.mood:`${p.mood} • ${p.activity||"pela casa"}`):"eliminado"}</span></div><span class="relation-mini">${r}</span></div>`}).join("");document.querySelector("#feed").innerHTML=feed.map(f=>`<div class="eventline">${f}</div>`).join("")}
+function ui(){if(!me)return;normalizeStats();document.querySelector("#energy").textContent=Math.round(stats.energy);document.querySelector("#social").textContent=Math.round(stats.social);document.querySelector("#rep").textContent=Math.round(stats.rep);document.querySelector("#coins").textContent=Math.round(stats.coins);document.querySelector("#roomBadge").textContent=phase==="challenge"?"🏟️ ARENA DA PROVA":roomAt(me.x,me.y)+(collisionDebug?" • DEBUG":"");const mc=activeMission?Math.min(activeMission.goal,missionCurrent()):0;document.querySelector("#missionShort").textContent=activeMission?`${activeMission.text} ${mc}/${activeMission.goal}`:"Sem missão";document.querySelector("#round").textContent=`RODADA ${round} • ${phase==="social"?"CONVIVÊNCIA":phase==="challenge"?"PROVA":"CERIMÔNIA"}`;document.querySelector("#timer").textContent=phase==="social"?`${String(Math.floor(Math.max(0,time)/60)).padStart(2,"0")}:${String(Math.ceil(Math.max(0,time)%60)).padStart(2,"0")}`:"EVENTO";document.querySelector("#event").textContent=eventName||(phase==="social"?"Convivência livre":"Evento em andamento");const night=round%3===0;document.querySelector("#dayLabel").textContent=`DIA ${round} ${night?"🌙":"☀️"}`;document.querySelector("#dayOverlay").style.opacity=night?".23":"0";document.querySelector("#players").innerHTML=people.map(p=>{const rel=relationship&&relationship[p.name],key=p.human?"theo":String(p.name||"npc").toLowerCase(),r=p===me?"Você":(rel?`🤝${rel.trust} 👁${rel.suspicion}`:"");return `<div class="person ${p.alive?"":"dead"}"><img src="assets/portraits/${key}.png"><div><span class="pname">${p.name}</span><span class="pmeta">${p.alive?(p.human?p.mood:`${p.mood} • ${p.activity||"pela casa"}`):"eliminado"}</span></div><span class="relation-mini">${r}</span></div>`}).join("");document.querySelector("#feed").innerHTML=feed.map(f=>`<div class="eventline">${f}</div>`).join("")}
 function alivePeople(){return people.filter(p=>p.alive)}
 function addFeed(t){
  if(!Array.isArray(feed))feed=[];
@@ -1013,9 +1142,12 @@ function modal(title,text,choices=[],cb=null){
  })
 }
 function closeModal(){
- const modalEl=document.querySelector("#modal");if(modalEl)modalEl.classList.add("hidden");
- const q=document.querySelector("#choices");if(q)q.innerHTML=""
+ const modalEl=document.querySelector("#modal");
+ if(modalEl)modalEl.classList.add("hidden");
+ const choicesEl=document.querySelector("#choices");
+ if(choicesEl)choicesEl.innerHTML="";
 }
+
 function bubble(t){toast(t)}
 function toast(t){
  let el=document.querySelector("#toast");
