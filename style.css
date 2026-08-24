@@ -461,3 +461,7 @@ aside{
 #riskBtn,#diaryBtn{
  border-color:rgba(103,225,255,.22);
 }
+
+/* V1.9 LABYRINTH ARENA */
+body.maze-mode #objectiveCard,
+body.maze-mode #interactionDock{display:none!important}
