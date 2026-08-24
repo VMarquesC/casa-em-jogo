@@ -465,3 +465,6 @@ aside{
 /* V1.9 LABYRINTH ARENA */
 body.maze-mode #objectiveCard,
 body.maze-mode #interactionDock{display:none!important}
+
+/* V1.10 — Arena Race */
+body.maze-mode #eventBoard{opacity:.88}

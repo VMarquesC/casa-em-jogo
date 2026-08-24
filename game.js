@@ -568,7 +568,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.9.1");
+ toast("CASA EM JOGO • V1.10.2");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -1195,7 +1195,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.9.1] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.10.2] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
@@ -2706,6 +2706,14 @@ const MAZE={
  peopleState:[],
  npcPaths:new Map(),
  npcThink:new Map()
+,
+ countdown:3.4,
+ started:false,
+ elapsed:0,
+ finishOrder:[],
+ raceWaypoints:[[768,148],[780,184],[828,184],[876,184],[904,204],[896,244],[892,288],[888,332],[904,364],[904,412],[916,448],[916,488],[892,512],[876,544],[872,588],[836,600],[812,624],[808,668],[812,712],[848,724],[852,768],[816,772],[792,796],[792,844],[828,856],[844,888],[844,936],[804,944],[768,944]],
+ progress:new Map(),
+ lastLeaderboard:[]
 };
 MAZE.map.src="assets/arena_labirinto.png";
 MAZE.mask.src="assets/arena_labirinto_mask.png";
@@ -2721,26 +2729,167 @@ MAZE.mask.onload=()=>{
  MAZE.maskReady=true
 };
 
+
+function mazeWaypointCanvas(i){
+ const p=MAZE.raceWaypoints[Math.max(0,Math.min(MAZE.raceWaypoints.length-1,i))];
+ return mazeImageToCanvas(p[0],p[1])
+}
+
+function mazeProgressOf(p){
+ if(!p)return 0;
+ let bestI=0,bestD=Infinity;
+ for(let i=0;i<MAZE.raceWaypoints.length;i++){
+   const [x,y]=mazeWaypointCanvas(i);
+   const d=Math.hypot(p.x-x,p.y-y);
+   if(d<bestD){bestD=d;bestI=i}
+ }
+ // Não deixa progresso "voltar" demais por ruído.
+ const old=MAZE.progress.get(p)||0;
+ const value=Math.max(old-.6,bestI);
+ MAZE.progress.set(p,value);
+ return value
+}
+
+function mazeLeaderboard(){
+ const alive=people.filter(p=>p.alive);
+ const list=alive.map(p=>{
+   const finished=MAZE.finishOrder.indexOf(p);
+   return {
+     p,
+     finished,
+     progress:finished>=0?9999-finished:mazeProgressOf(p)
+   }
+ }).sort((a,b)=>{
+   if(a.finished>=0&&b.finished>=0)return a.finished-b.finished;
+   if(a.finished>=0)return -1;
+   if(b.finished>=0)return 1;
+   return b.progress-a.progress
+ });
+ MAZE.lastLeaderboard=list;
+ return list
+}
+
+function mazePlayerPosition(){
+ const list=mazeLeaderboard();
+ const i=list.findIndex(x=>x.p===me);
+ return i>=0?i+1:list.length
+}
+
+function mazeNpcSkill(p){
+ const trait=realityTrait(p);
+ let skill=.78+Math.random()*.20;
+ if(trait==="competitivo")skill+=.10;
+ if(trait==="estrategista")skill+=.05;
+ return Math.min(1.08,skill)
+}
+
+function mazeNpcInit(p,index){
+ p.mazeWp=0;
+ p.mazeSkill=mazeNpcSkill(p);
+ p.mazeMistake=1+Math.random()*3;
+ p.mazePause=0;
+ p.mazeBacktrack=0;
+ // Pequena diferença de reação na largada.
+ p.mazeReaction=.10+Math.random()*.65;
+}
+
+function mazeNpcRace(p,dt){
+ if(p.mazeFinished)return;
+ if(p.mazeReaction>0){p.mazeReaction-=dt;return}
+ if(p.mazePause>0){p.mazePause-=dt;return}
+
+ // O NPC conhece "direções gerais", mas erra de propósito em alguns momentos.
+ p.mazeMistake-=dt;
+ if(p.mazeMistake<=0){
+   p.mazeMistake=2.2+Math.random()*5.2;
+   const errorChance=.32-(p.mazeSkill-.78)*.65;
+   if(Math.random()<Math.max(.07,errorChance)){
+     p.mazePause=.35+Math.random()*1.1;
+     if(Math.random()<.45)p.mazeBacktrack=1+Math.floor(Math.random()*2)
+   }
+ }
+
+ if(p.mazeBacktrack>0){
+   p.mazeWp=Math.max(0,p.mazeWp-1);
+   p.mazeBacktrack--
+ }
+
+ const targetIndex=Math.min(MAZE.raceWaypoints.length-1,p.mazeWp+1);
+ const [tx,ty]=mazeWaypointCanvas(targetIndex);
+ let dx=tx-p.x,dy=ty-p.y,d=Math.hypot(dx,dy);
+
+ if(d<13){
+   p.mazeWp=Math.min(MAZE.raceWaypoints.length-1,p.mazeWp+1);
+   if(p.mazeWp>=MAZE.raceWaypoints.length-1&&mazeNearExit(p)){
+     mazeFinishParticipant(p);return
+   }
+   return
+ }
+
+ dx/=d;dy/=d;
+ const speed=(54+28*p.mazeSkill);
+ const nx=p.x+dx*speed*dt,ny=p.y+dy*speed*dt;
+
+ // Deslize igual ao jogador; se waypoint central encostar na borda,
+ // tenta eixos separadamente.
+ if(mazeWalkableCanvas(nx,p.y,4))p.x=nx;
+ if(mazeWalkableCanvas(p.x,ny,4))p.y=ny;
+
+ mazeProgressOf(p);
+ if(mazeNearExit(p))mazeFinishParticipant(p)
+}
+
+function mazeFinishParticipant(p){
+ if(!p||!MAZE.active||MAZE.finished||p.mazeFinished)return;
+
+ p.mazeFinished=true;
+
+ if(!MAZE.finishOrder.includes(p)){
+   MAZE.finishOrder.push(p)
+ }
+
+ // A prova termina imediatamente no primeiro colocado.
+ if(MAZE.finishOrder.length===1){
+   mazeFinish(p)
+ }
+}
+
+function mazeCountdownText(){
+ if(MAZE.countdown>1)return String(Math.ceil(MAZE.countdown-1));
+ if(MAZE.countdown>0)return "JÁ!";
+ return ""
+}
+
 function mazeCanvasToImage(x,y){
  return [x*(MAZE.map.naturalWidth||1536)/C.width,y*(MAZE.map.naturalHeight||1024)/C.height]
 }
 function mazeImageToCanvas(x,y){
  return [x*C.width/(MAZE.map.naturalWidth||1536),y*C.height/(MAZE.map.naturalHeight||1024)]
 }
-function mazeWalkableCanvas(x,y,r=5){
- if(!MAZE.maskReady||!MAZE.maskData)return true;
+function mazeWalkableCanvas(x,y,r=4){
+ if(!Number.isFinite(x)||!Number.isFinite(y))return false;
+ if(!MAZE.maskReady||!MAZE.maskData)return false;
+
  const [ix,iy]=mazeCanvasToImage(x,y);
  const W=MAZE.maskData.width,H=MAZE.maskData.height,data=MAZE.maskData.data;
+ if(ix<0||iy<0||ix>=W||iy>=H)return false;
+
  const rr=Math.max(2,Math.round(r*(W/C.width)));
- for(let oy=-rr;oy<=rr;oy+=Math.max(1,Math.floor(rr/2))){
-  for(let ox=-rr;ox<=rr;ox+=Math.max(1,Math.floor(rr/2))){
+
+ // Centro + 8 pontos ao redor.
+ const samples=[
+   [0,0],[rr,0],[-rr,0],[0,rr],[0,-rr],
+   [rr*.72,rr*.72],[-rr*.72,rr*.72],[rr*.72,-rr*.72],[-rr*.72,-rr*.72]
+ ];
+
+ for(const [ox,oy] of samples){
    const px=Math.max(0,Math.min(W-1,Math.round(ix+ox)));
    const py=Math.max(0,Math.min(H-1,Math.round(iy+oy)));
    if(data[(py*W+px)*4]<128)return false
-  }
  }
  return true
 }
+
 function mazeNearExit(p){
  const [ex,ey]=mazeImageToCanvas(MAZE.exitX,MAZE.exitY);
  return Math.hypot(p.x-ex,p.y-ey)<30
@@ -2757,56 +2906,148 @@ function mazeStartPoints(){
 function mazeEnter(){
  try{closeModal()}catch(e){}
  if(MAZE.active)return;
- MAZE.active=true;MAZE.finished=false;MAZE.winner=null;MAZE.timeLeft=240;
- phase="maze";REALITY.phase="Prova do Líder — Labirinto";
+ try{document.body.classList.add("maze-mode")}catch(e){}
+
+ MAZE.active=true;
+ MAZE.finished=false;
+ MAZE.winner=null;
+ MAZE.timeLeft=240;
+ MAZE.elapsed=0;
+ MAZE.countdown=4.0;
+ MAZE.started=false;
+ MAZE.finishOrder=[];
+ MAZE.progress=new Map();
+ MAZE.lastLeaderboard=[];
+
+ phase="maze";
+ REALITY.phase="Prova do Líder — Labirinto";
  WEEKFLOW.phase="challengeMaze";
+
  const alive=people.filter(p=>p.alive);
  const pts=mazeStartPoints();
  MAZE.peopleState=alive.map(p=>({p,x:p.x,y:p.y,path:p.path,targetRoom:p.targetRoom}));
+
  alive.forEach((p,i)=>{
-  p.x=pts[i][0];p.y=pts[i][1];p.path=[];p.pathIndex=0;p.targetRoom=null;
-  p.mazeFinished=false;
-  p.mazeSpeed=p.human?1:(0.72+Math.random()*.33+(realityTrait(p)==="competitivo"?.10:0));
+   p.x=pts[i][0];p.y=pts[i][1];p.path=[];p.pathIndex=0;p.targetRoom=null;
+   p.mazeFinished=false;
+   if(!p.human)mazeNpcInit(p,i);
+   MAZE.progress.set(p,0)
  });
- eventLog("🧩 PROVA DO LÍDER: LABIRINTO — o primeiro a chegar à SAÍDA vence!",12);
- addFeed("⏱️ Tempo máximo: 4 minutos. Se ninguém chegar, não haverá Líder.");
+
+ eventLog("🧩 Todos posicionados. Prepare-se para a largada!",8);
+ addFeed("⏱️ O cronômetro de 4:00 começa após a contagem regressiva.");
 }
+
 function mazeLeave(){
- const saved=new Map(MAZE.peopleState.map(s=>[s.p,s]));
+ const saved=new Map((MAZE.peopleState||[]).map(s=>[s.p,s]));
+
  people.filter(p=>p.alive).forEach(p=>{
-  const s=saved.get(p);
-  if(s){p.x=s.x;p.y=s.y;p.path=[];p.pathIndex=0;p.targetRoom=s.targetRoom}
+   const s=saved.get(p);
+   if(s){
+     p.x=s.x;
+     p.y=s.y;
+     p.path=[];
+     p.pathIndex=0;
+     p.targetRoom=s.targetRoom;
+     p.facing=s.facing||p.facing
+   }
+
+   delete p.mazeFinished;
+   delete p.mazeWp;
+   delete p.mazeSkill;
+   delete p.mazeMistake;
+   delete p.mazePause;
+   delete p.mazeBacktrack;
+   delete p.mazeReaction
  });
+
  MAZE.active=false;
+ MAZE.started=false;
+ MAZE.finished=false;
+ MAZE.winner=null;
+ MAZE.finishOrder=[];
+ MAZE.peopleState=[];
+ MAZE.progress=new Map();
+ MAZE.lastLeaderboard=[];
+ MAZE.npcThink=new Map();
+
  phase="social";
+
+ try{
+   document.body.classList.remove("maze-mode")
+ }catch(e){}
 }
+
 function mazeFinish(winner){
  if(MAZE.finished)return;
- MAZE.finished=true;MAZE.winner=winner||null;
+ MAZE.finished=true;
+ MAZE.winner=winner||null;
+
  if(winner){
-  realitySetLeader(winner);
-  eventLog(`🏆 ${winner.name} chegou primeiro à saída e venceu o Labirinto!`,14);
-  modal("🏆 FIM DO LABIRINTO",
-    `${winner.name} encontrou a saída primeiro e é o novo Líder da casa!`,
-    ["VOLTAR PARA A CASA"],()=>{closeModal();mazeLeave();setTimeout(()=>beginChallengeAnnouncement("anjo"),7000)})
+   if(!MAZE.finishOrder.includes(winner))MAZE.finishOrder.push(winner);
+   realitySetLeader(winner);
+
+   const elapsed=Math.max(0,MAZE.elapsed);
+   const mm=Math.floor(elapsed/60),ss=(elapsed%60).toFixed(1).padStart(4,"0");
+   const playerPos=mazePlayerPosition();
+
+   eventLog(`🏆 ${winner.name} encontrou a saída e venceu o Labirinto!`,14);
+
+   const playerLine=winner===me
+     ?"\n\n🥳 VOCÊ FOI O PRIMEIRO!"
+     :`\n\nVocê estava em ${playerPos}º quando a prova terminou.`;
+
+   modal("🏆 PROVA ENCERRADA",
+     `${winner.name} foi o primeiro a alcançar a SAÍDA.\n\n⏱️ Tempo: ${mm}:${ss}\n👑 ${winner.name} é o novo Líder.${playerLine}`,
+     ["VOLTAR PARA A CASA"],()=>{
+       closeModal();
+       mazeLeave();
+       setTimeout(()=>beginChallengeAnnouncement("anjo"),7000)
+     })
  }else{
-  REALITY.leader=null;REALITY.immune.clear();
-  eventLog("⌛ O tempo acabou. Ninguém encontrou a saída — a prova ficou sem vencedor.",14);
-  modal("⌛ TEMPO ESGOTADO",
-    "Os 4 minutos terminaram e ninguém chegou à saída.\n\nNesta rodada, ninguém ganhou a liderança.",
-    ["VOLTAR PARA A CASA"],()=>{closeModal();mazeLeave();setTimeout(()=>beginChallengeAnnouncement("anjo"),7000)})
+   REALITY.leader=null;
+   REALITY.immune.clear();
+   eventLog("⌛ O tempo acabou. Ninguém encontrou a saída.",14);
+   modal("⌛ TEMPO ESGOTADO",
+     "Os 4 minutos terminaram e ninguém alcançou a SAÍDA.\n\n🚫 Não haverá Líder nesta rodada.",
+     ["VOLTAR PARA A CASA"],()=>{
+       closeModal();
+       mazeLeave();
+       setTimeout(()=>beginChallengeAnnouncement("anjo"),7000)
+     })
  }
 }
+
 function mazePlayerMove(dx,dy,dt){
- if(!MAZE.active||!me||MAZE.finished)return;
- const speed=120*(keys.has("shift")?1.35:1);
+ if(!MAZE.active||!MAZE.started||!me||!me.alive||MAZE.finished)return;
+ if(!Number.isFinite(dt)||dt<=0)return;
+
+ const speed=112*(keys.shift?1.28:1);
  const len=Math.hypot(dx,dy)||1;
- dx=dx/len*speed*dt;dy=dy/len*speed*dt;
- const nx=me.x+dx,ny=me.y+dy;
- if(mazeWalkableCanvas(nx,me.y,PLAYER_RADIUS))me.x=nx;
- if(mazeWalkableCanvas(me.x,ny,PLAYER_RADIUS))me.y=ny;
- if(mazeNearExit(me))mazeFinish(me)
+ const mx=dx/len*speed*dt;
+ const my=dy/len*speed*dt;
+
+ // Micro-passos: impossível "pular" uma parede em um frame ruim.
+ const steps=Math.max(1,Math.ceil(Math.max(Math.abs(mx),Math.abs(my))/2));
+ const sx=mx/steps,sy=my/steps;
+
+ for(let i=0;i<steps;i++){
+   const ox=me.x,oy=me.y;
+
+   if(mazeWalkableCanvas(me.x+sx,me.y,4))me.x+=sx;
+   if(mazeWalkableCanvas(me.x,me.y+sy,4))me.y+=sy;
+
+   // Se diagonal travou totalmente, tenta deslizar numa fração menor.
+   if(me.x===ox&&me.y===oy){
+     if(mazeWalkableCanvas(me.x+sx*.45,me.y,4))me.x+=sx*.45;
+     else if(mazeWalkableCanvas(me.x,me.y+sy*.45,4))me.y+=sy*.45
+   }
+ }
+
+ mazeProgressOf(me);
+ if(mazeNearExit(me))mazeFinishParticipant(me)
 }
+
 function mazeNpcChooseStep(p){
  // NPCs don't know the perfect solution: they sample nearby walkable directions,
  // with a mild bias toward the exit and occasional wrong turns.
@@ -2825,53 +3066,134 @@ function mazeNpcChooseStep(p){
 }
 function mazeUpdate(dt){
  if(!MAZE.active||MAZE.finished)return;
- MAZE.timeLeft=Math.max(0,MAZE.timeLeft-dt);
- if(MAZE.timeLeft<=0)return mazeFinish(null);
- if(me&&me.alive){
-  let dx=0,dy=0;
-  if(keys.has("a")||keys.has("arrowleft"))dx--;
-  if(keys.has("d")||keys.has("arrowright"))dx++;
-  if(keys.has("w")||keys.has("arrowup"))dy--;
-  if(keys.has("s")||keys.has("arrowdown"))dy++;
-  if(dx||dy)mazePlayerMove(dx,dy,dt)
+ if(!Number.isFinite(dt)||dt<=0)return;
+
+ // Evita saltos enormes se a aba ficou congelada.
+ dt=Math.min(dt,.05);
+
+ if(!MAZE.started){
+   MAZE.countdown=Math.max(0,MAZE.countdown-dt);
+   if(MAZE.countdown<=0){
+     MAZE.started=true;
+     eventLog("🚦 JÁ! Encontre a saída!",6)
+   }
+   return
  }
 
+ MAZE.elapsed+=dt;
+ MAZE.timeLeft=Math.max(0,MAZE.timeLeft-dt);
+
+ if(MAZE.timeLeft<=0){
+   mazeFinish(null);
+   return
+ }
+
+ if(me&&me.alive&&!me.mazeFinished){
+   let dx=0,dy=0;
+   if(keys.a||keys.arrowleft)dx--;
+   if(keys.d||keys.arrowright)dx++;
+   if(keys.w||keys.arrowup)dy--;
+   if(keys.s||keys.arrowdown)dy++;
+
+   if(dx||dy)mazePlayerMove(dx,dy,dt);
+   else mazeProgressOf(me)
+ }
 
  for(const p of people.filter(p=>p.alive&&!p.human)){
-  let think=MAZE.npcThink.get(p)||0;
-  think-=dt;
-  if(think<=0||!p.mazeDir){
-   p.mazeDir=mazeNpcChooseStep(p);
-   think=.25+Math.random()*.45
-  }
-  MAZE.npcThink.set(p,think);
-  const sp=74*p.mazeSpeed;
-  let nx=p.x+p.mazeDir.dx*sp*dt,ny=p.y+p.mazeDir.dy*sp*dt;
-  if(mazeWalkableCanvas(nx,p.y,5))p.x=nx;else p.mazeDir=null;
-  if(mazeWalkableCanvas(p.x,ny,5))p.y=ny;else p.mazeDir=null;
-  if(mazeNearExit(p))return mazeFinish(p)
+   if(MAZE.finished)break;
+   mazeNpcRace(p,dt)
  }
+
+ if(!MAZE.finished)mazeLeaderboard()
+}
+
+
+function mazeDrawCollisionDebug(){
+ if(!debugCollision||!MAZE.maskReady||!MAZE.maskCanvas)return;
+ ctx.save();
+ ctx.globalAlpha=.26;
+ ctx.drawImage(MAZE.maskCanvas,0,0,C.width,C.height);
+ ctx.globalAlpha=.95;
+ ctx.strokeStyle="#fff";
+ ctx.beginPath();
+ ctx.arc(me.x,me.y,4,0,Math.PI*2);
+ ctx.stroke();
+ ctx.restore()
 }
 function mazeDraw(){
  if(!MAZE.active)return false;
+
  ctx.clearRect(0,0,C.width,C.height);
  if(MAZE.mapReady)ctx.drawImage(MAZE.map,0,0,C.width,C.height);
  else{ctx.fillStyle="#090713";ctx.fillRect(0,0,C.width,C.height)}
 
- const alive=people.filter(p=>p.alive);
- alive.forEach(p=>drawPerson(p));
+ people.filter(p=>p.alive).forEach(p=>drawPerson(p));
 
- const secs=Math.ceil(MAZE.timeLeft),mm=String(Math.floor(secs/60)).padStart(2,"0"),ss=String(secs%60).padStart(2,"0");
+ const secs=Math.ceil(MAZE.timeLeft);
+ const mm=String(Math.floor(secs/60)).padStart(2,"0");
+ const ss=String(secs%60).padStart(2,"0");
+
+ // Timer
  ctx.save();
- ctx.fillStyle="rgba(5,8,17,.90)";ctx.fillRect(C.width/2-88,10,176,40);
- ctx.strokeStyle="rgba(177,89,255,.75)";ctx.strokeRect(C.width/2-88,10,176,40);
- ctx.textAlign="center";ctx.fillStyle="#fff";ctx.font="800 18px system-ui";
+ ctx.fillStyle="rgba(5,8,17,.92)";
+ ctx.fillRect(C.width/2-88,10,176,40);
+ ctx.strokeStyle="rgba(177,89,255,.78)";
+ ctx.strokeRect(C.width/2-88,10,176,40);
+ ctx.textAlign="center";
+ ctx.fillStyle="#fff";
+ ctx.font="800 18px system-ui";
  ctx.fillText(`${mm}:${ss}`,C.width/2,36);
- ctx.font="700 8px system-ui";ctx.fillStyle="#c9a7ff";
+ ctx.font="700 8px system-ui";
+ ctx.fillStyle="#c9a7ff";
  ctx.fillText("PROVA DO LÍDER • LABIRINTO",C.width/2,18);
+
+ // Ranking ao vivo
+ const list=mazeLeaderboard();
+ const boxW=154,boxX=C.width-boxW-12,boxY=60;
+ ctx.fillStyle="rgba(5,8,17,.90)";
+ ctx.fillRect(boxX,boxY,boxW,18+Math.min(5,list.length)*18);
+ ctx.strokeStyle="rgba(103,225,255,.28)";
+ ctx.strokeRect(boxX,boxY,boxW,18+Math.min(5,list.length)*18);
+ ctx.textAlign="left";
+ ctx.font="800 8px system-ui";ctx.fillStyle="#67e1ff";
+ ctx.fillText("POSIÇÃO AO VIVO",boxX+8,boxY+12);
+
+ list.slice(0,5).forEach((x,i)=>{
+   const yy=boxY+29+i*18;
+   ctx.font=x.p===me?"800 10px system-ui":"700 9px system-ui";
+   ctx.fillStyle=x.p===me?"#ffd659":"#edf3ff";
+   const suffix=x.finished>=0?" ✓":"";
+   ctx.fillText(`${i+1}º  ${x.p.name}${suffix}`,boxX+8,yy)
+ });
+
+ if(me&&me.alive){
+   const pos=mazePlayerPosition();
+   ctx.textAlign="center";
+   ctx.font="800 10px system-ui";
+   ctx.fillStyle="#ffd659";
+   ctx.fillText(`VOCÊ: ${pos}º`,C.width/2,62)
+ }
+
+ // Countdown
+ if(!MAZE.started){
+   ctx.fillStyle="rgba(2,4,10,.55)";
+   ctx.fillRect(0,0,C.width,C.height);
+   const t=mazeCountdownText();
+   ctx.textAlign="center";
+   ctx.font=t==="JÁ!"?"1000 52px system-ui":"1000 72px system-ui";
+   ctx.fillStyle=t==="JÁ!"?"#65f59a":"#fff";
+   ctx.shadowColor="#8d5cff";ctx.shadowBlur=20;
+   ctx.fillText(t,C.width/2,C.height/2);
+   ctx.shadowBlur=0;
+   ctx.font="800 11px system-ui";ctx.fillStyle="#d8cfff";
+   ctx.fillText("PREPARE-SE",C.width/2,C.height/2+42)
+ }
+
+ mazeDrawCollisionDebug();
  ctx.restore();
  return true
 }
+
 function mazeStartChallenge(){
  if(MAZE.active)return;
 
@@ -2889,7 +3211,7 @@ function mazeStartChallenge(){
  };
 
  modal("🧩 PROVA DO LÍDER — LABIRINTO",
-   "Todos os participantes irão para a arena.\n\nEncontre a SAÍDA antes dos outros.\n\n⏱️ Vocês têm 4 minutos.\nSe ninguém chegar, todos perdem a prova.",
+   "Todos os participantes irão para a arena.\n\n🏁 Há uma contagem regressiva antes da largada.\n🧩 Encontre a SAÍDA antes dos outros.\n⏱️ Vocês têm 4 minutos.\n📊 A posição dos cinco primeiros aparece durante a corrida.\n\nSe ninguém chegar, todos perdem a prova.",
    ["IR PARA A ARENA"],
    choice=>{
      // O sistema de modal passa o texto da opção escolhida.
