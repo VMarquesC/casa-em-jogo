@@ -1,6 +1,6 @@
 // Estados globais que precisam existir antes de qualquer callback/evento.
 var keys = Object.create(null);
-var NAV_STEP = 12;
+var NAV_STEP = 6;
 const C=document.querySelector("#canvas"),ctx=C.getContext("2d");
 ctx.imageSmoothingEnabled=false;
 const SPRITES={};
@@ -33,81 +33,42 @@ const MISSIONS=[{id:"talk3",text:"Converse com 3 participantes diferentes",goal:
 // Isso evita atravessar o fundo preto, paredes e móveis grandes.
 
 const FLOOR_RECTS=[
- // DESPENSA / CAFÉ superior esquerdo
- {room:"DESPENSA",x:51,y:31,w:258,h:170},
- // COZINHA principal
- {room:"COZINHA",x:51,y:230,w:258,h:386},
- // SALA / HALL central
- {room:"SALA",x:352,y:125,w:270,h:347},
- {room:"HALL",x:351,y:472,w:272,h:145},
- // passagem central inferior
- {room:"HALL",x:313,y:583,w:348,h:55},
- // PÁTIO
- {room:"PÁTIO / PISCINA",x:27,y:619,w:575,h:146},
- // QUARTO superior direito
+
+ {room:"DESPENSA",x:51,y:31,w:258,h:168},
+ {room:"COZINHA",x:51,y:229,w:258,h:386},
+ {room:"PASSAGEM COZINHA/SALA",x:296,y:316,w:75,h:88},
+ {room:"SALA",x:353,y:126,w:269,h:347},
+ {room:"PASSAGEM SALA/HALL",x:353,y:452,w:269,h:38},
+ {room:"HALL",x:351,y:471,w:272,h:146},
+ {room:"HALL",x:313,y:582,w:348,h:56},
+ {room:"PASSAGEM COZINHA/PÁTIO",x:165,y:604,w:78,h:35},
+ {room:"PÁTIO / PISCINA",x:27,y:619,w:576,h:146},
  {room:"QUARTO",x:646,y:25,w:332,h:298},
- // corredor abaixo do quarto
- {room:"CORREDOR",x:622,y:325,w:236,h:142},
- // LOUNGE
+ {room:"PASSAGEM QUARTO/CORREDOR",x:724,y:292,w:82,h:52},
+ {room:"CORREDOR",x:622,y:324,w:237,h:144},
+ {room:"PASSAGEM CORREDOR/LOUNGE",x:638,y:452,w:130,h:52},
  {room:"LOUNGE",x:643,y:487,w:133,h:254},
- // CONFESSIONÁRIO
+ {room:"PASSAGEM LOUNGE/CONFESSIONÁRIO",x:764,y:634,w:38,h:88},
  {room:"CONFESSIONÁRIO",x:786,y:491,w:201,h:250}
+
 ];
 
 // Obstáculos desenhados em cima dos elementos visíveis.
 // playerRadius é aplicado de forma circular, então não precisa "engordar" os retângulos.
 const SOLIDS=[
- // bordas / bancadas da despensa
- [53,31,255,22],[53,31,18,171],[290,31,18,171],
- [72,68,49,95],[123,62,109,63],[236,52,48,109],
- [75,164,190,31],
 
- // cozinha: bancadas e eletros nas paredes
- [53,232,255,28],[53,232,21,383],[286,232,22,383],
- [75,262,191,65],[249,264,38,96],
- [55,421,37,167],[263,405,26,183],
- // ilha + bancos/cadeiras
- [137,387,86,150],[116,404,18,132],[226,402,18,134],
- [154,537,25,40],[204,537,25,40],
- // itens inferiores / plantas
- [253,562,33,47],[47,590,70,25],
-
- // sala: paredes laterais e objetos
- [353,125,269,23],[353,125,22,342],[601,125,21,342],
-  [445,312,126,128], // sofá
- [451,338,78,59], // mesa de centro
- [444,445,131,39], // estante/console
- [354,482,78,77],[540,482,70,77], // estantes do hall
-  [453,551,91,64], // porta dupla/parede central inferior
- [320,588,47,49],[575,588,44,49], // paredes pequenas
-
- // pátio e piscina
- [27,619,87,22],[27,619,20,146],
- [75,633,73,104], // guarda-sol/cadeira
- [112,687,482,78], // água da piscina: não caminhável
- [367,630,70,66],[506,630,75,70], // espreguiçadeiras
- [590,619,13,146],
-
- // quarto: paredes e camas/malas/móveis
- [646,25,332,23],[646,25,19,298],[959,25,19,298],
+ [72,68,49,95],[123,62,109,63],[236,52,48,109],[75,164,190,31],
+ [75,262,191,65],[249,264,38,96],[55,421,37,167],[263,405,26,183],
+ [137,387,86,150],[116,404,18,132],[226,402,18,134],[154,537,25,40],[204,537,25,40],[253,562,33,47],
+ [445,312,126,128],[451,338,78,59],[444,445,131,39],
+ [362,490,58,63],[548,490,54,63],[320,588,47,49],[575,588,44,49],
+ [75,633,73,104],[112,687,482,78],[367,630,70,66],[506,630,75,70],
  [667,47,76,115],[755,46,62,73],[828,47,75,113],[910,47,48,113],
- [676,198,88,91],[805,196,84,95],[899,197,59,94],
- [739,185,90,94], // malas no centro
- [664,291,132,31],[829,291,129,31],
+ [676,198,88,91],[805,196,84,95],[899,197,59,94],[739,185,90,94],
+ [622,326,80,42],[787,324,47,143],[835,327,24,140],
+ [659,510,59,68],[658,610,55,101],[724,518,35,118],
+ [804,514,164,55],[863,600,43,117]
 
- // corredor sob quarto: paredes verdes / vãos
- [622,326,80,42],[699,327,92,42],[835,327,24,140],
- [787,324,47,143],
-
- // lounge
- [643,488,132,21],[643,488,18,253],[758,488,18,253],
- [659,510,59,68],[658,610,55,101],[724,518,35,178],
- [658,718,117,23],
-
- // confessionário
- [786,491,201,22],[786,491,18,250],[969,491,18,250],
- [804,514,164,55],[804,568,40,154],[929,569,40,153],
- [863,600,43,117],[804,718,165,23]
 ];
 
 // Portais só existem onde o próprio desenho tem cômodos fisicamente separados.
@@ -119,29 +80,9 @@ const PORTALS=[
  {name:"Lounge",roomA:"LOUNGE",ax:676,ay:595,roomB:"HALL",bx:596,by:562},
  {name:"Confessionário",roomA:"CONFESSIONÁRIO",ax:916,ay:690,roomB:"LOUNGE",bx:735,by:690}
 ];
-const PASSAGE_FLOORS=[
- {room:"PASSAGEM COZINHA/SALA",x:276,y:336,w:108,h:72},
- {room:"PASSAGEM DESPENSA/COZINHA",x:144,y:180,w:84,h:72},
- {room:"PASSAGEM COZINHA/PÁTIO",x:156,y:588,w:84,h:72},
- {room:"PASSAGEM SALA/HALL",x:384,y:444,w:60,h:72},
- {room:"PASSAGEM HALL/PÁTIO",x:420,y:588,w:96,h:72},
- {room:"PASSAGEM HALL/CORREDOR",x:588,y:420,w:96,h:84},
- {room:"PASSAGEM QUARTO/CORREDOR",x:768,y:276,w:96,h:96},
- {room:"PASSAGEM CORREDOR/LOUNGE",x:648,y:444,w:96,h:84},
- {room:"PASSAGEM LOUNGE/CONFESSIONÁRIO",x:744,y:624,w:84,h:108}
-];
+const PASSAGE_FLOORS=[];
 // Faixas estreitas de porta. Só dentro delas a parede é ignorada.
-const DOOR_LANES=[
- [276,348,108,48],
- [156,180,60,72],
- [168,588,48,72],
- [384,444,48,72],
- [432,588,72,72],
- [588,432,96,48],
- [780,276,72,96],
- [660,444,72,84],
- [756,636,60,96]
-];
+const DOOR_LANES=[];
 
 
 
@@ -149,8 +90,7 @@ const PLAYER_RADIUS=10;
 let collisionDebug=false;
 
 function rawFloorPoint(x,y){
- return FLOOR_RECTS.some(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h) ||
- PASSAGE_FLOORS.some(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h)
+ return FLOOR_RECTS.some(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h)
 }
 
 function pointInFloors(x,y,r=PLAYER_RADIUS){
@@ -161,9 +101,7 @@ function pointInFloors(x,y,r=PLAYER_RADIUS){
 }
 function floorRoom(x,y){
  const r=FLOOR_RECTS.find(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h);
- if(r)return r.room;
- const p=PASSAGE_FLOORS.find(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h);
- return p?p.room:"FORA DA CASA"
+ return r?r.room:"FORA DA CASA"
 }
 
 function circleRect(cx,cy,r,bx,by,bw,bh){
@@ -171,8 +109,7 @@ function circleRect(cx,cy,r,bx,by,bw,bh){
  return (cx-nx)*(cx-nx)+(cy-ny)*(cy-ny)<r*r
 }
 function staticBlocked(x,y,r=PLAYER_RADIUS){
- const lane=DOOR_LANES.some(([dx,dy,dw,dh])=>x>=dx&&x<=dx+dw&&y>=dy&&y<=dy+dh);
- return SOLIDS.some(([bx,by,bw,bh])=>circleRect(x,y,r,bx,by,bw,bh)&&!lane)
+ return SOLIDS.some(([bx,by,bw,bh])=>circleRect(x,y,r,bx,by,bw,bh))
 }
 
 function blockingActor(x,y,r,who){
@@ -211,7 +148,18 @@ function tryMovePlayer(nx,ny){
  return false
 }
 
-function roomAt(x,y){return floorRoom(x,y)}
+function roomAt(x,y){
+ const r=floorRoom(x,y);
+ if(!r.startsWith("PASSAGEM"))return r;
+ if(r.includes("COZINHA/SALA"))return x<332?"COZINHA":"SALA";
+ if(r.includes("SALA/HALL"))return y<471?"SALA":"HALL";
+ if(r.includes("COZINHA/PÁTIO"))return y<620?"COZINHA":"PÁTIO / PISCINA";
+ if(r.includes("QUARTO/CORREDOR"))return y<323?"QUARTO":"CORREDOR";
+ if(r.includes("CORREDOR/LOUNGE"))return y<487?"CORREDOR":"LOUNGE";
+ if(r.includes("LOUNGE/CONFESSIONÁRIO"))return x<786?"LOUNGE":"CONFESSIONÁRIO";
+ return r
+}
+
 function safePoint(roomName,ignoreActor=null){
  const candidates=FLOOR_RECTS.filter(r=>!roomName||r.room===roomName);
  if(!candidates.length)return [405,286];
@@ -248,7 +196,7 @@ function callToConfessional(){
 
 function startConfessionalTravel(){
  if(!me||!me.alive)return;
- const target=[850,590],route=findPath(me.x,me.y,target[0],target[1],me,9000);
+ const target=[855,590],route=findPath(me.x,me.y,target[0],target[1],me,9000);
  if(!route.length){toast("CAMINHO BLOQUEADO");autoConfession=null;return}
  autoConfession={target,path:route,index:0};eventName="📢 Indo ao Confessionário";
  toast("📺 INDO AO CONFESSIONÁRIO")
@@ -385,34 +333,45 @@ function findNearestWalkable(x,y){
  return null
 }
 
-function findPath(sx,sy,tx,ty,who=null,maxNodes=1800){
- var navStep=(Number.isFinite(NAV_STEP)&&NAV_STEP>0)?NAV_STEP:12;
+function findPath(sx,sy,tx,ty,who=null,maxNodes=20000){
+ const step=(Number.isFinite(NAV_STEP)&&NAV_STEP>0)?NAV_STEP:6;
  if(![sx,sy,tx,ty].every(Number.isFinite))return [];
- maxNodes=Number.isFinite(maxNodes)&&maxNodes>0?Math.max(6000,Math.floor(maxNodes)):6000;
  const start=findNearestWalkable(sx,sy),goal=findNearestWalkable(tx,ty);
  if(!start||!goal)return [];
  const sk=navKey(start[0],start[1]),gk=navKey(goal[0],goal[1]);
  if(sk===gk)return [goal];
 
- const queue=[start],came=new Map([[sk,null]]),coords=new Map([[sk,start]]);
- let qi=0,visited=0;
  const dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+ const open=[],index=new Map(),came=new Map(),gScore=new Map([[sk,0]]),coords=new Map([[sk,start]]);
+ const heuristic=(x,y)=>Math.hypot(goal[0]-x,goal[1]-y);
+ const swap=(a,b)=>{const t=open[a];open[a]=open[b];open[b]=t;index.set(open[a].k,a);index.set(open[b].k,b)};
+ const up=i=>{while(i>0){const p=(i-1)>>1;if(open[p].f<=open[i].f)break;swap(i,p);i=p}};
+ const down=i=>{for(;;){let l=i*2+1,r=l+1,b=i;if(l<open.length&&open[l].f<open[b].f)b=l;if(r<open.length&&open[r].f<open[b].f)b=r;if(b===i)break;swap(i,b);i=b}};
+ const push=node=>{index.set(node.k,open.length);open.push(node);up(open.length-1)};
+ const pop=()=>{const root=open[0],last=open.pop();index.delete(root.k);if(open.length){open[0]=last;index.set(last.k,0);down(0)}return root};
 
- while(qi<queue.length&&visited++<maxNodes){
-  const cur=queue[qi++],ck=navKey(cur[0],cur[1]);
-  for(const [dx,dy] of dirs){
-   const nx=cur[0]+dx*navStep,ny=cur[1]+dy*navStep,nk=navKey(nx,ny);
-   if(came.has(nk)||!navWalkable(nx,ny))continue;
-   came.set(nk,ck);coords.set(nk,[nx,ny]);
-
-   if(nk===gk){
-    const path=[];let k=nk;
-    while(k&&k!==sk){path.push(coords.get(k));k=came.get(k)}
-    path.reverse();
-    return path
+ push({k:sk,x:start[0],y:start[1],f:heuristic(start[0],start[1])});
+ let visited=0;
+ while(open.length&&visited++<Math.max(20000,maxNodes||0)){
+   const cur=pop(),ck=cur.k;
+   if(ck===gk){
+     const path=[];let k=ck;
+     while(k&&k!==sk){path.push(coords.get(k));k=came.get(k)}
+     path.reverse();return path
    }
-   queue.push([nx,ny])
-  }
+   const cg=gScore.get(ck)??Infinity;
+   for(const [dx,dy] of dirs){
+     const nx=cur.x+dx*step,ny=cur.y+dy*step,nk=navKey(nx,ny);
+     if(!navWalkable(nx,ny))continue;
+     // Diagonal cannot cut through furniture corners.
+     if(dx&&dy&&(!navWalkable(cur.x+dx*step,cur.y)||!navWalkable(cur.x,cur.y+dy*step)))continue;
+     const ng=cg+(dx&&dy?1.414:1)*step;
+     if(ng>=(gScore.get(nk)??Infinity))continue;
+     came.set(nk,ck);coords.set(nk,[nx,ny]);gScore.set(nk,ng);
+     const f=ng+heuristic(nx,ny);
+     if(index.has(nk)){const i=index.get(nk);open[i].f=f;open[i].x=nx;open[i].y=ny;up(i)}
+     else push({k:nk,x:nx,y:ny,f})
+   }
  }
  return []
 }
@@ -532,7 +491,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.3.2");
+ toast("CASA EM JOGO • V1.3.3");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -1098,7 +1057,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.3.2] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.3.3] autoteste:",issues.length?issues:"OK");
  return issues
 }
 

@@ -1,23 +1,30 @@
-CASA EM JOGO — V1.3.2 CLEAN MAP
+CASA EM JOGO — V1.3.3 FLOOR MATCH
 
-O que mudou:
-- removidos os retângulos gigantes desenhados por cima da casa;
-- restaurado o cenário original;
-- apenas pequenas pontes de piso aparecem nos vãos pretos inevitáveis;
-- teleporte entre cômodos removido;
-- colisões de porta agora são faixas estreitas;
-- pathfinding ganhou diagonais e orçamento maior;
-- confessionário usa caminhada real;
-- NPCs podem escolher outros cômodos sem TP;
-- o overlay colorido continua existindo SOMENTE no modo debug (H).
+O mapa visual foi restaurado exatamente para a arte original.
 
-Portas físicas recalibradas:
-- cozinha_sala: centro (330, 372)
-- despensa_cozinha: centro (186, 216)
-- cozinha_patio: centro (192, 624)
-- sala_hall: centro (408, 480)
-- hall_patio: centro (468, 624)
-- hall_corredor: centro (636, 456)
-- quarto_corredor: centro (816, 324)
-- corredor_lounge: centro (696, 480)
-- lounge_conf: centro (786, 672)
+COLISÃO:
+- paredes externas não são mais caixas gigantes;
+- o limite é definido pelo piso visível;
+- móveis e água são os obstáculos;
+- passagens estreitas foram alinhadas às portas/vãos;
+- estantes do Hall foram recalibradas;
+- porta do Quarto foi aberta corretamente.
+
+PATHFINDING:
+- substituído por A*;
+- grade de 6 px;
+- suporta diagonais sem cortar quinas.
+
+ROTAS REAIS TESTADAS:
+- cozinha-sala: 50 nós
+- sala-hall: 53 nós
+- hall-patio: 98 nós
+- hall-corredor: 74 nós
+- corredor-quarto: 61 nós
+- corredor-lounge: 64 nós
+- lounge-conf: 33 nós
+
+RUNTIME:
+- 8 participantes iniciados;
+- 240 frames executados;
+- posições/path dos NPCs válidos.
