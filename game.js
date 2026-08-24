@@ -568,7 +568,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.11.2");
+ toast("CASA EM JOGO • V1.11.3");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -1195,7 +1195,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.11.2] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.11.3] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
@@ -3128,8 +3128,15 @@ function mazeCanvasToImage(x,y){
 function mazeImageToCanvas(x,y){
  return [x*C.width/(MAZE.map.naturalWidth||1536),y*C.height/(MAZE.map.naturalHeight||1024)]
 }
+
+function mazeIllegalSideArea(x,y){
+ return x>C.width*0.54705 && x<C.width*0.63636 &&
+        y>C.height*0.78628 && y<C.height*1.00000
+}
+
 function mazeWalkableCanvas(x,y,r=3){
  if(!Number.isFinite(x)||!Number.isFinite(y))return false;
+ if(mazeIllegalSideArea(x,y))return false;
  if(!MAZE.maskReady||!MAZE.maskData)return false;
 
  const [ix,iy]=mazeCanvasToImage(x,y);
