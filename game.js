@@ -119,29 +119,28 @@ const PORTALS=[
  {name:"Lounge",roomA:"LOUNGE",ax:676,ay:595,roomB:"HALL",bx:596,by:562},
  {name:"Confessionário",roomA:"CONFESSIONÁRIO",ax:916,ay:690,roomB:"LOUNGE",bx:735,by:690}
 ];
-
 const PASSAGE_FLOORS=[
- {room:"PASSAGEM COZINHA/SALA",x:280,y:330,w:120,h:100},
- {room:"PASSAGEM DESPENSA/COZINHA",x:145,y:135,w:175,h:210},
- {room:"PASSAGEM COZINHA/PÁTIO",x:150,y:580,w:95,h:90},
- {room:"PASSAGEM SALA/HALL",x:375,y:425,w:105,h:110},
- {room:"PASSAGEM HALL/PÁTIO",x:405,y:575,w:110,h:100},
- {room:"PASSAGEM HALL/CORREDOR",x:580,y:420,w:120,h:110},
- {room:"PASSAGEM QUARTO/CORREDOR",x:765,y:275,w:105,h:110},
- {room:"PASSAGEM CORREDOR/LOUNGE",x:635,y:420,w:120,h:120},
- {room:"PASSAGEM LOUNGE/CONFESSIONÁRIO",x:725,y:525,w:185,h:205}
+ {room:"PASSAGEM COZINHA/SALA",x:276,y:336,w:108,h:72},
+ {room:"PASSAGEM DESPENSA/COZINHA",x:144,y:180,w:84,h:72},
+ {room:"PASSAGEM COZINHA/PÁTIO",x:156,y:588,w:84,h:72},
+ {room:"PASSAGEM SALA/HALL",x:384,y:444,w:60,h:72},
+ {room:"PASSAGEM HALL/PÁTIO",x:420,y:588,w:96,h:72},
+ {room:"PASSAGEM HALL/CORREDOR",x:588,y:420,w:96,h:84},
+ {room:"PASSAGEM QUARTO/CORREDOR",x:768,y:276,w:96,h:96},
+ {room:"PASSAGEM CORREDOR/LOUNGE",x:648,y:444,w:96,h:84},
+ {room:"PASSAGEM LOUNGE/CONFESSIONÁRIO",x:744,y:624,w:84,h:108}
 ];
-
-const DOOR_CUTOUTS=[
- [272,322,136,116],
- [137,127,191,226],
- [142,572,111,106],
- [367,417,121,126],
- [397,567,126,116],
- [572,412,136,126],
- [757,267,121,126],
- [627,412,136,136],
- [717,517,201,221]
+// Faixas estreitas de porta. Só dentro delas a parede é ignorada.
+const DOOR_LANES=[
+ [276,348,108,48],
+ [156,180,60,72],
+ [168,588,48,72],
+ [384,444,48,72],
+ [432,588,72,72],
+ [588,432,96,48],
+ [780,276,72,96],
+ [660,444,72,84],
+ [756,636,60,96]
 ];
 
 
@@ -151,7 +150,7 @@ let collisionDebug=false;
 
 function rawFloorPoint(x,y){
  return FLOOR_RECTS.some(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h) ||
-        PASSAGE_FLOORS.some(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h)
+ PASSAGE_FLOORS.some(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h)
 }
 
 function pointInFloors(x,y,r=PLAYER_RADIUS){
@@ -172,11 +171,8 @@ function circleRect(cx,cy,r,bx,by,bw,bh){
  return (cx-nx)*(cx-nx)+(cy-ny)*(cy-ny)<r*r
 }
 function staticBlocked(x,y,r=PLAYER_RADIUS){
- const inDoor=DOOR_CUTOUTS.some(([dx,dy,dw,dh])=>x>=dx&&x<=dx+dw&&y>=dy&&y<=dy+dh);
- return SOLIDS.some(([bx,by,bw,bh])=>{
-  if(inDoor&&circleRect(x,y,r,bx,by,bw,bh))return false;
-  return circleRect(x,y,r,bx,by,bw,bh)
- })
+ const lane=DOOR_LANES.some(([dx,dy,dw,dh])=>x>=dx&&x<=dx+dw&&y>=dy&&y<=dy+dh);
+ return SOLIDS.some(([bx,by,bw,bh])=>circleRect(x,y,r,bx,by,bw,bh)&&!lane)
 }
 
 function blockingActor(x,y,r,who){
@@ -252,40 +248,23 @@ function callToConfessional(){
 
 function startConfessionalTravel(){
  if(!me||!me.alive)return;
- const target=[918,610];
- const route=findPath(me.x,me.y,target[0],target[1],me,7000);
- if(!route.length){
-  addFeed("⚠️ A Produção não encontrou uma rota até o Confessionário.");
-  toast("CAMINHO BLOQUEADO");
-  autoConfession=null;
-  return
- }
- autoConfession={target,path:route,index:0};
- eventName="📢 Indo ao Confessionário";
+ const target=[850,590],route=findPath(me.x,me.y,target[0],target[1],me,9000);
+ if(!route.length){toast("CAMINHO BLOQUEADO");autoConfession=null;return}
+ autoConfession={target,path:route,index:0};eventName="📢 Indo ao Confessionário";
  toast("📺 INDO AO CONFESSIONÁRIO")
 }
 
 function updateConfessionalTravel(dt){
  if(!autoConfession||!me)return false;
  const path=autoConfession.path;
- if(!Array.isArray(path)||autoConfession.index>=path.length){
-  me.facing="left";
-  autoConfession=null;eventName="";
-  setTimeout(()=>confession(),220);
-  return true
- }
- const wp=path[autoConfession.index];
- const dx=wp[0]-me.x,dy=wp[1]-me.y,d=Math.hypot(dx,dy);
+ if(!path||autoConfession.index>=path.length){autoConfession=null;eventName="";setTimeout(()=>confession(),220);return true}
+ const wp=path[autoConfession.index],dx=wp[0]-me.x,dy=wp[1]-me.y,d=Math.hypot(dx,dy);
  if(d<5){autoConfession.index++;return true}
- const step=Math.min(102*dt,d),vx=dx/(d||1),vy=dy/(d||1);
- me.facing=Math.abs(vx)>Math.abs(vy)?(vx>0?"right":"left"):(vy>0?"down":"up");
- me.walkFrame=(me.walkFrame+dt*6)%4;
+ const vx=dx/(d||1),vy=dy/(d||1),step=Math.min(96*dt,d);
+ me.facing=Math.abs(vx)>Math.abs(vy)?(vx>0?"right":"left"):(vy>0?"down":"up");me.walkFrame=(me.walkFrame+dt*6)%4;
  const nx=me.x+vx*step,ny=me.y+vy*step;
  if(canMoveStatic(nx,ny,PLAYER_RADIUS)){me.x=nx;me.y=ny}
- else{
-  if(canMoveStatic(nx,me.y,PLAYER_RADIUS))me.x=nx;
-  if(canMoveStatic(me.x,ny,PLAYER_RADIUS))me.y=ny
- }
+ else{if(canMoveStatic(nx,me.y,PLAYER_RADIUS))me.x=nx;if(canMoveStatic(me.x,ny,PLAYER_RADIUS))me.y=ny}
  return true
 }
 
@@ -313,9 +292,7 @@ function returnHomeFromChallenge(){
  homePositions=null;challengeArenaKey="";eventName="";
  toast("🏠 TODOS DE VOLTA À CASA")
 }
-function nearestPortal(p){
- return null
-}
+function nearestPortal(p){return null}
 
 function useNearestPortal(p){
  const found=nearestPortal(p);if(!found)return false;
@@ -337,7 +314,7 @@ console.log("[Casa em Jogo] script inicializado");document.documentElement.datas
 document.querySelectorAll(".trait").forEach(b=>b.onclick=()=>{document.querySelectorAll(".trait").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");trait=b.dataset.trait;updateStartPreview()});document.querySelector("#name").addEventListener("input",updateStartPreview);
 COLORS.slice(0,7).forEach((c,i)=>{let b=document.createElement("button");b.className="color"+(i===0?" selected":"");b.style.background=c;b.onclick=()=>{document.querySelectorAll(".color").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");playerColor=c};document.querySelector("#colors").appendChild(b)});
 let gameStarted=false,animationFrameId=null,loopErrorCount=0,lastFatalAt=0;
-let passageCd=0,confessionCallCd=40,autoConfession=null,lastRoom="";
+let passageCd=0,confessionCallCd=40,autoConfession=null;
 let homePositions=null,challengeArenaKey="";
 
 document.querySelector("#play").onclick=()=>{
@@ -411,7 +388,7 @@ function findNearestWalkable(x,y){
 function findPath(sx,sy,tx,ty,who=null,maxNodes=1800){
  var navStep=(Number.isFinite(NAV_STEP)&&NAV_STEP>0)?NAV_STEP:12;
  if(![sx,sy,tx,ty].every(Number.isFinite))return [];
- maxNodes=Number.isFinite(maxNodes)&&maxNodes>0?Math.floor(maxNodes):1800;
+ maxNodes=Number.isFinite(maxNodes)&&maxNodes>0?Math.max(6000,Math.floor(maxNodes)):6000;
  const start=findNearestWalkable(sx,sy),goal=findNearestWalkable(tx,ty);
  if(!start||!goal)return [];
  const sk=navKey(start[0],start[1]),gk=navKey(goal[0],goal[1]);
@@ -419,7 +396,7 @@ function findPath(sx,sy,tx,ty,who=null,maxNodes=1800){
 
  const queue=[start],came=new Map([[sk,null]]),coords=new Map([[sk,start]]);
  let qi=0,visited=0;
- const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+ const dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
 
  while(qi<queue.length&&visited++<maxNodes){
   const cur=queue[qi++],ck=navKey(cur[0],cur[1]);
@@ -442,30 +419,33 @@ function findPath(sx,sy,tx,ty,who=null,maxNodes=1800){
 
 function chooseNpcDestination(p){
  const room=roomAt(p.x,p.y);
- const rooms=["SALA","COZINHA","HALL","PÁTIO / PISCINA","QUARTO","CORREDOR","LOUNGE","DESPENSA"];
+ const roamRooms=["SALA","COZINHA","HALL","PÁTIO / PISCINA","QUARTO","CORREDOR","LOUNGE"];
  const sameRoom=people.filter(o=>o!==p&&o.alive&&roomAt(o.x,o.y)===room);
  let target;
 
- if(sameRoom.length&&Math.random()<.27){
+ if(sameRoom.length&&Math.random()<.35){
   const other=pick(sameRoom),angle=Math.random()*Math.PI*2;
   target=[other.x+Math.cos(angle)*34,other.y+Math.sin(angle)*34];
   p.activity=Math.random()<.5?"conversando":"fofocando";
   p.socialTarget=other.name
  }else{
-  const currentBase=room.startsWith("PASSAGEM")?"SALA":room;
-  const targetRoom=Math.random()<.38?(pick(rooms)||currentBase):currentBase;
-  target=safePoint(targetRoom,p);
-  p.activity=targetRoom===currentBase?(pick(["passeando","observando","descansando"])||"observando"):`indo para ${targetRoom.toLowerCase()}`;
+  target=safePoint(room,p);
+  p.activity=pick(["passeando","observando","descansando"])||"observando";
   p.socialTarget=null
  }
 
- p.path=findPath(p.x,p.y,target[0],target[1],p,7000);
- p.pathIndex=0;p.repathCd=rnd(5,9);
+ if(Math.random()<.30){
+  const rr=pick(roamRooms),rp=safePoint(rr,p);
+  if(rp)target=rp
+ }
+ p.path=findPath(p.x,p.y,target[0],target[1],p,9000);
+ p.pathIndex=0;
+ p.repathCd=rnd(3,6);
 
  if(!p.path.length){
-  for(let i=0;i<24;i++){
+  for(let i=0;i<28;i++){
    const a=Math.random()*Math.PI*2,d=rnd(28,88);
-   const path=findPath(p.x,p.y,p.x+Math.cos(a)*d,p.y+Math.sin(a)*d,p,1000);
+   const path=findPath(p.x,p.y,p.x+Math.cos(a)*d,p.y+Math.sin(a)*d,p,600);
    if(path.length){p.path=path;break}
   }
  }
@@ -513,7 +493,7 @@ function start(){
  gameStarted=true;
  const name=document.querySelector("#name").value.trim()||"Jogador";
  // reset completo para impedir estado parcial caso o usuário tente iniciar novamente
- phase="social";round=1;time=70;lastRoom="";confessionCallCd=38;autoConfession=null;homePositions=null;challengeArenaKey="";feed=[];leader="";immune="";eventName="";near=null;doorNear=null;dialogueOpen=false;currentDialogue=null;if(typingTimer){clearInterval(typingTimer);typingTimer=null}document.querySelector("#dialogue").classList.add("hidden");closeModal();
+ phase="social";round=1;time=70;confessionCallCd=38;autoConfession=null;homePositions=null;challengeArenaKey="";feed=[];leader="";immune="";eventName="";near=null;doorNear=null;dialogueOpen=false;currentDialogue=null;if(typingTimer){clearInterval(typingTimer);typingTimer=null}document.querySelector("#dialogue").classList.add("hidden");closeModal();
  alliances=[];gossips=[];relationship={};eventCd=18;actionCd=0;roomActionCd=0;challenge=0;
  stats={energy:100,social:50,rep:50,coins:500};
  if(trait==="Social")stats.social=62;
@@ -552,7 +532,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.3.1");
+ toast("CASA EM JOGO • V1.3.2");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -614,14 +594,7 @@ function update(dt){
    tryMovePlayer(me.x,ny);
  }
  if(!uiBlocking())updateBots(dt);
- near=me?findNear():null;doorNear=null;
- if(me&&phase==="social"){
-  const currentRoom=roomAt(me.x,me.y);
-  if(!currentRoom.startsWith("PASSAGEM")&&currentRoom!=="FORA DA CASA"&&currentRoom!==lastRoom){
-   if(lastRoom)toast(`📍 ${currentRoom}`);
-   lastRoom=currentRoom
-  }
- }
+ near=me?findNear():null;doorNear=me?nearestPortal(me):null;
  if(eventCd<=0 && !uiBlocking() && phase==="social"){randomEvent();eventCd=rnd(19,31)}
  if(phase==="social"&&!uiBlocking()&&!autoConfession){
   confessionCallCd=Math.max(-1,confessionCallCd-dt);
@@ -1061,8 +1034,6 @@ function drawCollisionDebug(){
  PASSAGE_FLOORS.forEach(r=>ctx.fillRect(r.x,r.y,r.w,r.h));
  ctx.globalAlpha=.38;ctx.fillStyle="#ef4444";
  SOLIDS.forEach(([x,y,w,h])=>ctx.fillRect(x,y,w,h));
- ctx.globalAlpha=.55;ctx.fillStyle="#38bdf8";
- DOOR_CUTOUTS.forEach(([x,y,w,h])=>ctx.fillRect(x,y,w,h));
  ctx.globalAlpha=.9;ctx.fillStyle="#facc15";
  PORTALS.forEach(p=>{ctx.beginPath();ctx.arc(p.ax,p.ay,5,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(p.bx,p.by,5,0,Math.PI*2);ctx.fill()});
  ctx.restore()
@@ -1127,7 +1098,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.3.1] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.3.2] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
