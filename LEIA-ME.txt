@@ -1,69 +1,41 @@
-CASA EM JOGO — V1.1.8 MOVEMENT QA
+CASA EM JOGO — V1.2.2 DEEP AUDIT
 
-REVISÃO ESPECÍFICA DE MOVIMENTAÇÃO E NPCs
+REVISÃO DE BUGS MAIS PROFUNDA
 
-CORRIGIDO
-- Pathfinding não trata mais personagens móveis como paredes permanentes.
-- NPCs fazem desvio lateral quando outro participante bloqueia o caminho.
-- Replanejamento de rota acontece mais cedo.
-- Pequeno escape local substitui travamentos longos; nunca muda de cômodo.
-- Jogador pode empurrar suavemente um NPC que o prendeu.
-- NPCs ficam pausados durante diálogos e menus.
-- Spawn dos bots tenta manter distância mínima entre personagens.
-- Painel IA NPC mostra há quanto tempo cada bot está preso.
+CORREÇÕES DE ROBUSTEZ
+- modais agora aceitam choices/callback ausentes sem quebrar
+- closeModal limpa escolhas antigas
+- closeDialogue valida elementos antes de usar
+- typeDialogue força texto para string
+- showDialogue valida choices
+- advanceDialogue tolera DOM ausente
+- final protege winner nulo
+- resolve protege prova sem participantes válidos
+- randomEvent garante gossips como array
+- UI protege relationship/nome de NPC
+- stats se recupera se objeto for corrompido
+- updateBots recupera path/pathIndex inválidos
+- findPath valida coordenadas e maxNodes
+- safePoint protege pick nulo
+- npcSocialTick protege outro NPC nulo
+- chooseNpcDestination tem atividade fallback
+- showNpcDebug exige partida iniciada
+- addFeed e toast ficaram defensivos
+- showRelationships/Powers/Mission ficaram seguros antes da partida
+- runtime audit ampliado para posições dos personagens
 
-TESTES
-- node --check: OK
+AUDITORIA AUTOMÁTICA
+- node --check: OK (2 passadas)
+- funções duplicadas: 0
+- autochamadas inválidas tipo let x=x(...): 0
+- chamadas dist(...): 0
+- keys: 1 declaração
+- NAV_STEP: 1 declaração
+- IDs DOM ausentes: 0
+- sprites: 8
+- retratos: 8
+- cenário presente
 - funções críticas únicas: OK
-- IDs HTML/JS: OK
-- spawn do jogador com pelo menos 4 direções livres imediatas
-- malha de navegação conferida em grade de 12 px
 
-MALHA POR CÔMODO
-{
-  "CONFESSIONÁRIO": {
-    "nodes": 16,
-    "largest": 16,
-    "components": 1
-  },
-  "CORREDOR": {
-    "nodes": 84,
-    "largest": 84,
-    "components": 1
-  },
-  "COZINHA": {
-    "nodes": 139,
-    "largest": 139,
-    "components": 1
-  },
-  "DESPENSA": {
-    "nodes": 20,
-    "largest": 18,
-    "components": 2
-  },
-  "HALL": {
-    "nodes": 96,
-    "largest": 77,
-    "components": 5
-  },
-  "LOUNGE": {
-    "nodes": 10,
-    "largest": 8,
-    "components": 2
-  },
-  "PÁTIO / PISCINA": {
-    "nodes": 106,
-    "largest": 65,
-    "components": 4
-  },
-  "QUARTO": {
-    "nodes": 54,
-    "largest": 45,
-    "components": 3
-  },
-  "SALA": {
-    "nodes": 318,
-    "largest": 318,
-    "components": 1
-  }
-}
+PONTOS DE PICK + .name SINALIZADOS PARA REVISÃO MANUAL
+- linha 609: `Ei, ${me.name}. ${pick(sayings)}`,
