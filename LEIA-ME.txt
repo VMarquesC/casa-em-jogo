@@ -1,25 +1,28 @@
-CASA EM JOGO — V1.3.8 DOOR OPENINGS
+CASA EM JOGO
 
-Correção estrutural:
-- paredes continuam bloqueando;
-- agora existem WALL_OPENINGS explícitas nas portas;
-- uma abertura de porta tem prioridade apenas sobre WALLS;
-- móveis continuam bloqueando mesmo dentro das portas.
+Projeto de um jogo web inspirado em reality shows.
 
-Corrigido:
-- faixa direita da cozinha;
-- Cozinha -> Sala;
-- Sala -> Hall;
-- Hall -> Pátio;
-- Quarto -> Corredor;
-- Corredor -> Lounge;
-- Lounge -> Confessionário.
+O jogo ainda está em desenvolvimento e várias partes continuam sendo ajustadas conforme novas ideias entram.
 
-Debug H:
-- verde = piso;
-- amarelo = móveis;
-- vermelho = paredes;
-- azul = portas/aberturas.
+O que já existe:
+- movimentação pelo mapa da casa;
+- NPCs andando e interagindo;
+- relações, fofocas e alianças;
+- prova do líder e imunidade;
+- votação e eliminação;
+- confessionário;
+- festas e eventos;
+- prova do labirinto com colisões e cronômetro.
 
-Melhoria adicional:
-- NPC que fica preso recalcula a rota automaticamente.
+Controles:
+- WASD ou setas para andar;
+- os botões da interface abrem as interações e sistemas do jogo.
+
+Versão atual do histórico: v1.11.3
+
+Próximas ideias:
+- melhorar os personagens e animações;
+- criar mais provas;
+- melhorar diálogos e acontecimentos;
+- continuar arrumando a gameplay;
+- adicionar multiplayer futuramente.
