@@ -568,12 +568,14 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.6.1");
+ toast("CASA EM JOGO • V1.6.3");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
  try{draw();ui()}catch(err){console.error("Primeiro desenho:",err);showFatalError("Erro ao desenhar a partida",err)}
  if(animationFrameId===null)animationFrameId=requestAnimationFrame(loop)
+
+ setTimeout(()=>startWeekFlow(),900);
 }
 
 function loop(now){
@@ -612,6 +614,7 @@ function showFatalError(title,err){
 function modalOpen(){return !document.querySelector("#modal").classList.contains("hidden")}
 function uiBlocking(){return dialogueOpen||modalOpen()}
 function update(dt){
+ updateWeekFlow(dt);
  if(typeof LIVING!=="undefined")livingTick(dt);
  if(typeof REALITY!=="undefined")realityTick(dt);
 
@@ -1071,14 +1074,14 @@ function drawPerson(p){
    ctx.textBaseline="middle";
    ctx.font="14px 'Segoe UI Emoji','Apple Color Emoji',system-ui";
    ctx.globalAlpha=.94;
-   ctx.fillText(mood,p.x,p.y-42);
+   ctx.fillText(mood,p.x,p.y-58);
 
    // Pensamento fica acima do emoji, com cápsula clara e discreta.
    if(thought && !p.human){
      const short=thought.length>28?thought.slice(0,27)+"…":thought;
      ctx.font="9px system-ui";
      const tw=Math.min(146,ctx.measureText(short).width+14);
-     const tx=p.x-tw/2,ty=p.y-70;
+     const tx=p.x-tw/2,ty=p.y-84;
 
      ctx.globalAlpha=.88;
      ctx.fillStyle="rgba(255,255,255,.94)";
@@ -1186,7 +1189,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.6.1] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.6.3] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
@@ -1205,7 +1208,15 @@ function roomContextHint(){
  };
  return hints[roomAt(me.x,me.y)]||""
 }
-function ui(){if(!me)return;normalizeStats();document.querySelector("#energy").textContent=Math.round(stats.energy);document.querySelector("#social").textContent=Math.round(stats.social);document.querySelector("#rep").textContent=Math.round(stats.rep);document.querySelector("#coins").textContent=Math.round(stats.coins);document.querySelector("#roomBadge").textContent=phase==="challenge"?"🏟️ ARENA DA PROVA":roomAt(me.x,me.y)+(collisionDebug?" • DEBUG":"");const mc=activeMission?Math.min(activeMission.goal,missionCurrent()):0;document.querySelector("#missionShort").textContent=activeMission?`${activeMission.text} ${mc}/${activeMission.goal}`:"Sem missão";document.querySelector("#round").textContent=`RODADA ${round} • ${phase==="social"?"CONVIVÊNCIA":phase==="challenge"?"PROVA":"CERIMÔNIA"}`;document.querySelector("#timer").textContent=phase==="social"?`${String(Math.floor(Math.max(0,time)/60)).padStart(2,"0")}:${String(Math.ceil(Math.max(0,time)%60)).padStart(2,"0")}`:"EVENTO";document.querySelector("#event").textContent=eventName||(phase==="social"?"Convivência livre":"Evento em andamento");const night=round%3===0;document.querySelector("#dayLabel").textContent=`DIA ${round} ${night?"🌙":"☀️"}`;document.querySelector("#dayOverlay").style.opacity=night?".23":"0";document.querySelector("#players").innerHTML=people.map(p=>{const rel=relationship&&relationship[p.name],key=p.human?"theo":String(p.name||"npc").toLowerCase(),r=p===me?"Você":(rel?`🤝${rel.trust} 👁${rel.suspicion}`:"");return `<div class="person ${p.alive?"":"dead"}"><img src="assets/portraits/${key}.png"><div><span class="pname">${p.name}</span><span class="pmeta">${p.alive?(p.human?p.mood:`${p.mood} • ${p.activity||"pela casa"}`):"eliminado"}</span></div><span class="relation-mini">${r}</span></div>`}).join("");document.querySelector("#feed").innerHTML=feed.map(f=>`<div class="eventline">${f}</div>`).join("")}
+function ui(){if(!me)return;normalizeStats();document.querySelector("#energy").textContent=Math.round(stats.energy);document.querySelector("#social").textContent=Math.round(stats.social);document.querySelector("#rep").textContent=Math.round(stats.rep);document.querySelector("#coins").textContent=Math.round(stats.coins);document.querySelector("#roomBadge").textContent=phase==="challenge"?"🏟️ ARENA DA PROVA":roomAt(me.x,me.y)+(collisionDebug?" • DEBUG":"");const mc=activeMission?Math.min(activeMission.goal,missionCurrent()):0;document.querySelector("#missionShort").textContent=activeMission?`${activeMission.text} ${mc}/${activeMission.goal}`:"Sem missão";document.querySelector("#round").textContent=`RODADA ${round} • ${phase==="social"?"CONVIVÊNCIA":phase==="challenge"?"PROVA":"CERIMÔNIA"}`;document.querySelector("#timer").textContent=phase==="social"?`${String(Math.floor(Math.max(0,time)/60)).padStart(2,"0")}:${String(Math.ceil(Math.max(0,time)%60)).padStart(2,"0")}`:"EVENTO";document.querySelector("#event").textContent=eventName||(phase==="social"?"Convivência livre":"Evento em andamento");const night=round%3===0;document.querySelector("#dayLabel").textContent=`DIA ${round} ${night?"🌙":"☀️"}`;document.querySelector("#dayOverlay").style.opacity=night?".23":"0";document.querySelector("#players").innerHTML=people.map(p=>{const rel=relationship&&relationship[p.name],key=p.human?"theo":String(p.name||"npc").toLowerCase(),r=p===me?"Você":(rel?`🤝${rel.trust} 👁${rel.suspicion}`:"");return `<div class="person ${p.alive?"":"dead"}"><img src="assets/portraits/${key}.png"><div><span class="pname">${p.name}</span><span class="pmeta">${p.alive?(p.human?p.mood:`${p.mood} • ${p.activity||"pela casa"}`):"eliminado"}</span></div><span class="relation-mini">${r}</span></div>`}).join("");document.querySelector("#feed").innerHTML=feed.map(f=>`<div class="eventline">${f}</div>`).join("")
+ const board=document.querySelector("#eventBoardCurrent");
+ const phaseEl=document.querySelector("#eventBoardPhase");
+ if(board){
+   const latest=(REALITY.history&&REALITY.history[0])||WEEKFLOW.lastEventText||"A casa está em convivência.";
+   board.textContent=latest;
+ }
+ if(phaseEl)phaseEl.textContent=weekFlowStatusText();
+}
 function alivePeople(){return people.filter(p=>p.alive)}
 function addFeed(t){
  if(!Array.isArray(feed))feed=[];
@@ -1253,6 +1264,164 @@ function stopMusic(){if(musicTimer){clearInterval(musicTimer);musicTimer=null}}
 // ============================================================
 // CASA EM JOGO V1.5 — REALITY UPDATE
 // ============================================================
+
+const WEEKFLOW={
+ started:false,
+ phase:"convivencia",
+ socialTime:55,
+ announceTime:8,
+ challengeType:"lider",
+ awaitingPlayer:false,
+ playerResult:null,
+ npcResults:null,
+ eventHold:0,
+ lastEventText:""
+};
+
+function eventLog(text,hold=7){
+ WEEKFLOW.lastEventText=text;
+ WEEKFLOW.eventHold=Math.max(WEEKFLOW.eventHold,hold);
+ addFeed(text);
+ if(typeof toast==="function")toast(text);
+}
+
+function startWeekFlow(){
+ if(WEEKFLOW.started)return;
+ WEEKFLOW.started=true;
+ WEEKFLOW.phase="convivencia";
+ WEEKFLOW.socialTime=55;
+ WEEKFLOW.announceTime=8;
+ REALITY.phase="Convivência";
+ realityHistory("A temporada começou. A casa terá um período de convivência antes da primeira prova.");
+ realityMiniObjective();
+ eventLog("🏠 CONVIVÊNCIA: explore a casa, converse e observe os participantes.",10);
+}
+
+function beginChallengeAnnouncement(type="lider"){
+ WEEKFLOW.phase="announcement";
+ WEEKFLOW.challengeType=type;
+ WEEKFLOW.announceTime=8;
+ REALITY.phase=type==="lider"?"Anúncio da Prova do Líder":"Anúncio da Prova do Anjo";
+ eventLog(`📢 PRODUÇÃO: em 8 segundos começa a Prova do ${type==="lider"?"Líder":"Anjo"}.`,10);
+}
+
+function beginInteractiveChallenge(type="lider"){
+ WEEKFLOW.phase="challenge";
+ WEEKFLOW.awaitingPlayer=true;
+ WEEKFLOW.playerResult=null;
+ WEEKFLOW.npcResults=null;
+ REALITY.phase=type==="lider"?"Prova do Líder":"Prova do Anjo";
+
+ const pool=realityAlive();
+ const npcScores=pool.filter(p=>!p.human).map(p=>({
+   p,
+   score:realityChallengeScore(p,type)
+ })).sort((a,b)=>b.score-a.score);
+ WEEKFLOW.npcResults=npcScores;
+
+ const title=type==="lider"?"👑 PROVA DO LÍDER":"😇 PROVA DO ANJO";
+ const intro=type==="lider"
+   ?"Você também participa. Clique quando achar que o medidor está o mais próximo possível de 100."
+   :"Você também participa. Clique no melhor momento para tentar superar os outros.";
+
+ modal(title,
+   `${intro}\n\nOs outros participantes também estão competindo agora — o vencedor só será definido depois da sua tentativa.`,
+   ["COMEÇAR MINHA TENTATIVA"],()=>{
+      closeModal();
+      launchPlayerChallenge(type)
+   })
+}
+
+function launchPlayerChallenge(type){
+ const startedAt=performance.now();
+ const ideal=1000+rnd(900,2200);
+ let finished=false;
+
+ const finish=()=>{
+   if(finished)return;
+   finished=true;
+   const elapsed=performance.now()-startedAt;
+   const error=Math.abs(elapsed-ideal);
+   const playerScore=Math.max(0,118-(error/18)+rnd(-4,4));
+   resolveInteractiveChallenge(type,playerScore,error)
+ };
+
+ modal(type==="lider"?"⏱️ TESTE DE TEMPO":"✨ TESTE DE PRECISÃO",
+   `Clique em PARAR no momento certo.\n\nQuanto mais perto do tempo secreto, maior sua pontuação.\n\nSua tentativa está valendo...`,
+   ["PARAR"],finish);
+
+ // não resolve sozinho rápido: dá até 8s para o player agir
+ setTimeout(()=>{
+   if(!finished){
+     const elapsed=performance.now()-startedAt;
+     const error=Math.abs(elapsed-ideal)+450;
+     const playerScore=Math.max(0,90-(error/22));
+     finished=true;
+     closeModal();
+     resolveInteractiveChallenge(type,playerScore,error)
+   }
+ },8000)
+}
+
+function resolveInteractiveChallenge(type,playerScore,error){
+ closeModal();
+ WEEKFLOW.awaitingPlayer=false;
+
+ const player=me;
+ const results=[...(WEEKFLOW.npcResults||[])];
+ if(player&&player.alive)results.push({p:player,score:playerScore});
+ results.sort((a,b)=>b.score-a.score);
+
+ REALITY.lastChallengeRanking=results.map(x=>({name:x.p.name,score:Math.round(x.score)}));
+ const winner=results[0]?.p;
+ if(!winner)return;
+
+ if(type==="lider"){
+   realitySetLeader(winner)
+ }else{
+   realitySetAngel(winner)
+ }
+
+ const yourPos=Math.max(1,results.findIndex(x=>x.p===player)+1);
+ const yourScore=Math.round(playerScore);
+ eventLog(`🏁 Você ficou em ${yourPos}º na Prova do ${type==="lider"?"Líder":"Anjo"} com ${yourScore} pontos.`,9);
+
+ WEEKFLOW.phase="postChallenge";
+ setTimeout(()=>{
+   if(type==="lider"){
+     beginChallengeAnnouncement("anjo")
+   }else{
+     if(REALITY.partyPending)realityStartParty();
+     WEEKFLOW.phase="party";
+   }
+ },9000)
+}
+
+function updateWeekFlow(dt){
+ if(!WEEKFLOW.started||!gameStarted)return;
+
+ if(WEEKFLOW.eventHold>0){
+   WEEKFLOW.eventHold=Math.max(0,WEEKFLOW.eventHold-dt)
+ }
+
+ if(WEEKFLOW.phase==="convivencia"){
+   WEEKFLOW.socialTime=Math.max(0,WEEKFLOW.socialTime-dt);
+   if(WEEKFLOW.socialTime<=0)beginChallengeAnnouncement("lider")
+ }else if(WEEKFLOW.phase==="announcement"){
+   WEEKFLOW.announceTime=Math.max(0,WEEKFLOW.announceTime-dt);
+   if(WEEKFLOW.announceTime<=0)beginInteractiveChallenge(WEEKFLOW.challengeType)
+ }
+}
+
+function weekFlowStatusText(){
+ if(!WEEKFLOW.started)return "";
+ if(WEEKFLOW.phase==="convivencia")return `🏠 Convivência • Prova em ${Math.ceil(WEEKFLOW.socialTime)}s`;
+ if(WEEKFLOW.phase==="announcement")return `📢 Prova em ${Math.ceil(WEEKFLOW.announceTime)}s`;
+ if(WEEKFLOW.phase==="challenge")return `🏆 Prova do ${WEEKFLOW.challengeType==="lider"?"Líder":"Anjo"} em andamento`;
+ if(WEEKFLOW.phase==="party")return "🎉 Festa";
+ return REALITY.phase||""
+}
+
 const REALITY={
  day:1,
  phase:"Convivência",
@@ -1528,8 +1697,46 @@ function realityStartParty(){
    realityShowGossip();realityShowGossip()
  },22000)
 }
+
+function realityWeekStatus(){
+ const leader=REALITY.leader?.name||"—";
+ const angel=REALITY.angel?.name||"—";
+ const immune=[...REALITY.immune].join(", ")||"—";
+ return {
+  dia:REALITY.day,
+  fase:REALITY.phase||"Convivência",
+  lider:leader,
+  anjo:angel,
+  imunes:immune,
+  festa:REALITY.partyActive?"Acontecendo":REALITY.partyPending?"Em breve":"Não"
+ }
+}
+function realityShowWeekStatus(){
+ const s=realityWeekStatus();
+ modal("📅 SEMANA DA CASA",
+   `Dia ${s.dia}\nFase: ${s.fase}\n\n👑 Líder: ${s.lider}\n😇 Anjo: ${s.anjo}\n🛡️ Imunes: ${s.imunes}\n🎉 Festa: ${s.festa}`,
+   ["FECHAR"],closeModal)
+}
+
+
+function realityMiniObjective(){
+ const targets=[
+  "Converse com 2 participantes diferentes.",
+  "Descubra uma fofoca nova.",
+  "Visite a Sala Verde.",
+  "Passe um tempo na Festa.",
+  "Observe quem está mais próximo do Líder.",
+  "Abra o perfil de um participante.",
+  "Tente melhorar sua relação com alguém."
+ ];
+ const text=pick(targets)||"Observe a casa.";
+ addFeed(`🎯 Objetivo do dia: ${text}`);
+ return text
+}
+
 function realityNewCycle(){
- REALITY.day++;REALITY.phase="Prova do Líder";REALITY.immune.clear();
+ REALITY.day++;REALITY.phase="Prova do Líder";
+ realityMiniObjective();REALITY.immune.clear();
  const leader=realityPickChallengeWinner("lider");if(leader)realitySetLeader(leader);
  setTimeout(()=>{
    REALITY.phase="Prova do Anjo";
@@ -1540,12 +1747,12 @@ function realityNewCycle(){
 
 function realityTick(dt){
  REALITY._clock=(REALITY._clock||0)+dt;
- if(REALITY._clock>18){
+ if(REALITY._clock>32){
    REALITY._clock=0;
    const npcs=realityNPCs();
    if(npcs.length)realityQueueConfession(npcs[Math.floor(Math.random()*npcs.length)],"rotina");
-   if(Math.random()<.55)realityShowGossip();
-   if(Math.random()<.22)realityCreateAlliance()
+   if(Math.random()<.35)realityShowGossip();
+   if(Math.random()<.14)realityCreateAlliance()
  }
  realityProcessConfession()
 }
@@ -1555,20 +1762,6 @@ setTimeout(()=>{
  const gb=document.querySelector("#gossipBtn");
  if(gb)gb.onclick=()=>realityShowGossip();
 },0);
-
-setTimeout(()=>{
- const pb=document.querySelector("#play");
- if(pb)pb.addEventListener("click",()=>{
-   setTimeout(()=>{
-     if(gameStarted){
-       realityHistory("A temporada começou. Ninguém tem vantagem escondida.");
-       realityCreateAlliance();
-       setTimeout(()=>realityNewCycle(),3500)
-     }
-   },300)
- })
-},0);
-
 
 // ============================================================
 // V1.6 — LIVING HOUSE
@@ -1846,12 +2039,52 @@ function livingSocialEvent(){
  }
 }
 
+
+function livingRoutineEvent(){
+ const npcs=realityNPCs();
+ if(!npcs.length)return;
+ const p=pick(npcs);
+ if(!p)return;
+ const room=roomAt(p.x,p.y);
+ const actions={
+  "COZINHA":["fazendo café","pegando comida","lavando louça"],
+  "SALA":["descansando","observando a casa","assistindo os outros"],
+  "QUARTO":["arrumando a cama","conversando baixo","pensando no jogo"],
+  "PÁTIO / PISCINA":["tomando um ar","sentado perto da piscina","relaxando"],
+  "SALA VERDE":["falando de estratégia","tentando descobrir votos","fofocando"],
+  "FESTA":["dançando","curtindo a pista","conversando com o grupo"],
+  "CORREDOR":["indo atrás de alguém","circulando pela casa"]
+ };
+ const action=pick(actions[room]||["circulando pela casa"]);
+ livingSetAction(p,action,randInt(6,12));
+ if(Math.random()<.28){
+  livingThought(p,pick([
+   "Preciso melhorar minha posição.",
+   "Quero conversar com meu grupo.",
+   "Será que estão falando de mim?",
+   "A próxima prova é importante.",
+   "Não posso virar alvo agora."
+  ])||"Preciso pensar.")
+ }
+}
+function livingHouseAnnouncement(){
+ const lines=[
+  "📢 Produção: atenção, participantes. A casa está em modo convivência.",
+  "📢 Produção: em breve haverá uma nova dinâmica.",
+  "📢 Produção: cuidem das alianças... a votação se aproxima.",
+  "📢 Produção: a casa está sendo observada."
+ ];
+ addFeed(pick(lines)||"📢 Produção chamou a atenção da casa.")
+}
+
 function livingTick(dt){
  LIVING._clock=(LIVING._clock||0)+dt;
  LIVING._actionClock=(LIVING._actionClock||0)+dt;
  LIVING._eventClock=(LIVING._eventClock||0)+dt;
+ LIVING._routineClock=(LIVING._routineClock||0)+dt;
+ LIVING._announceClock=(LIVING._announceClock||0)+dt;
 
- if(LIVING._actionClock>7){
+ if(LIVING._actionClock>11){
    LIVING._actionClock=0;
    const npcs=realityNPCs();
    if(npcs.length){
@@ -1863,14 +2096,23 @@ function livingTick(dt){
    }
  }
 
- if(LIVING._clock>16){
+ if(LIVING._clock>24){
    LIVING._clock=0;
    if(Math.random()<.34)livingDrama(); else if(Math.random()<.42)livingGroupChat()
  }
 
- if(LIVING._eventClock>20){
+ if(LIVING._eventClock>30){
    LIVING._eventClock=0;
    if(Math.random()<.65)livingSocialEvent()
+ }
+
+ if(LIVING._routineClock>14){
+   LIVING._routineClock=0;
+   livingRoutineEvent()
+ }
+ if(LIVING._announceClock>50){
+   LIVING._announceClock=0;
+   if(Math.random()<.55)livingHouseAnnouncement()
  }
 }
 
@@ -1893,3 +2135,21 @@ setTimeout(()=>{
    if(p)livingProfile(p)
  })
 },0);
+
+setTimeout(()=>{
+ const wb=document.querySelector("#weekBtn");
+ if(wb)wb.onclick=()=>realityShowWeekStatus()
+},0);
+
+
+function showSeasonHistory(){
+ const lines=(REALITY.history||[]).slice(0,18);
+ modal("📺 HISTÓRICO DA TEMPORADA",
+   lines.length?lines.join("\n\n"):"Nenhum acontecimento importante ainda.",
+   ["FECHAR"],closeModal)
+}
+setTimeout(()=>{
+ const hb=document.querySelector("#historyBtn");
+ if(hb)hb.onclick=()=>showSeasonHistory()
+},0);
+

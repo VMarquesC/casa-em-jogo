@@ -120,3 +120,73 @@ button:active{transform:scale(.97)}
 #event{
  min-height:20px;
 }
+
+/* ===== V1.6.2 START SCREEN ===== */
+#startHero{
+ max-width:680px;
+ margin:0 auto 22px;
+ text-align:center;
+ padding:10px 18px 0;
+}
+.heroKicker{
+ font-size:11px;font-weight:900;letter-spacing:2.2px;opacity:.62;
+}
+.heroTitle{
+ font-size:clamp(34px,6vw,64px);font-weight:1000;letter-spacing:-3px;line-height:.96;
+ margin-top:6px;background:linear-gradient(90deg,#fff,#c7d2fe 55%,#a5f3fc);
+ -webkit-background-clip:text;background-clip:text;color:transparent;
+ text-shadow:0 0 36px rgba(124,58,237,.20);
+}
+.heroSub{
+ max-width:600px;margin:12px auto 0;font-size:14px;line-height:1.45;opacity:.82;
+}
+.heroChips{
+ display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:16px;
+}
+.heroChips span{
+ padding:7px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.12);
+ background:rgba(255,255,255,.055);backdrop-filter:blur(10px);font-size:11px;font-weight:800;
+}
+#play{
+ border:1px solid rgba(255,255,255,.16);
+ background:linear-gradient(90deg,#7c3aed,#2563eb);
+ box-shadow:0 14px 40px rgba(79,70,229,.30);
+}
+
+
+/* ===== V1.6.3 PACED EVENTS ===== */
+#eventBoard{
+ margin:10px 0 12px;
+ padding:12px 14px;
+ border:1px solid rgba(255,255,255,.14);
+ border-radius:14px;
+ background:linear-gradient(180deg,rgba(20,27,45,.96),rgba(10,15,27,.96));
+ box-shadow:0 10px 30px rgba(0,0,0,.24);
+}
+.eventBoardTop{
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ gap:10px;
+ margin-bottom:8px;
+}
+.eventBoardTop strong{
+ font-size:12px;
+ letter-spacing:.8px;
+}
+#historyBtn{
+ padding:6px 9px;
+ border-radius:8px;
+ font-size:11px;
+}
+#eventBoardCurrent{
+ font-size:14px;
+ line-height:1.45;
+ font-weight:800;
+ min-height:40px;
+}
+#eventBoardPhase{
+ margin-top:7px;
+ font-size:12px;
+ opacity:.72;
+}
