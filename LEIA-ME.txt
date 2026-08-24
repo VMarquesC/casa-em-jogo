@@ -1,23 +1,69 @@
-CASA EM JOGO — V1.1.6 INPUTFIX
+CASA EM JOGO — V1.1.8 MOVEMENT QA
 
-CORRIGIDO:
-ReferenceError: keys is not defined
+REVISÃO ESPECÍFICA DE MOVIMENTAÇÃO E NPCs
 
-A movimentação e os listeners consultavam `keys`, mas a variável
-não existia mais depois das refatorações anteriores. Como update()
-consulta isso em todo frame, o loop quebrava imediatamente.
+CORRIGIDO
+- Pathfinding não trata mais personagens móveis como paredes permanentes.
+- NPCs fazem desvio lateral quando outro participante bloqueia o caminho.
+- Replanejamento de rota acontece mais cedo.
+- Pequeno escape local substitui travamentos longos; nunca muda de cômodo.
+- Jogador pode empurrar suavemente um NPC que o prendeu.
+- NPCs ficam pausados durante diálogos e menus.
+- Spawn dos bots tenta manter distância mínima entre personagens.
+- Painel IA NPC mostra há quanto tempo cada bot está preso.
 
-Agora:
-- `keys` existe antes dos listeners.
-- existe exatamente uma declaração.
-- keydown e keyup foram conferidos.
-- perder foco/aba limpa teclas para evitar movimento preso.
-- IA/pathfinding da V1.1.5 foi preservada.
-
-QA:
+TESTES
 - node --check: OK
-- update(): único
-- updateBots(): único
-- loop(): único
-- findPath(): único
-- safePoint(): único
+- funções críticas únicas: OK
+- IDs HTML/JS: OK
+- spawn do jogador com pelo menos 4 direções livres imediatas
+- malha de navegação conferida em grade de 12 px
+
+MALHA POR CÔMODO
+{
+  "CONFESSIONÁRIO": {
+    "nodes": 16,
+    "largest": 16,
+    "components": 1
+  },
+  "CORREDOR": {
+    "nodes": 84,
+    "largest": 84,
+    "components": 1
+  },
+  "COZINHA": {
+    "nodes": 139,
+    "largest": 139,
+    "components": 1
+  },
+  "DESPENSA": {
+    "nodes": 20,
+    "largest": 18,
+    "components": 2
+  },
+  "HALL": {
+    "nodes": 96,
+    "largest": 77,
+    "components": 5
+  },
+  "LOUNGE": {
+    "nodes": 10,
+    "largest": 8,
+    "components": 2
+  },
+  "PÁTIO / PISCINA": {
+    "nodes": 106,
+    "largest": 65,
+    "components": 4
+  },
+  "QUARTO": {
+    "nodes": 54,
+    "largest": 45,
+    "components": 3
+  },
+  "SALA": {
+    "nodes": 318,
+    "largest": 318,
+    "components": 1
+  }
+}

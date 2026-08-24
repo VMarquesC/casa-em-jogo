@@ -1,3 +1,5 @@
+// Estado de teclado deve existir antes de qualquer callback/evento.
+var keys = Object.create(null);
 const C=document.querySelector("#canvas"),ctx=C.getContext("2d");
 ctx.imageSmoothingEnabled=false;
 const SPRITES={};
@@ -135,16 +137,42 @@ function circleRect(cx,cy,r,bx,by,bw,bh){
 function staticBlocked(x,y,r=PLAYER_RADIUS){
  return SOLIDS.some(([bx,by,bw,bh])=>circleRect(x,y,r,bx,by,bw,bh))
 }
-function actorBlocked(x,y,r,who){
+function blockingActor(x,y,r,who){
  for(const p of people){
   if(!p.alive||p===who)continue;
-  if(Math.hypot(x-p.x,y-p.y)<r+9)return true
+  const minDist=r+(p.human?8:7);
+  if(Math.hypot(x-p.x,y-p.y)<minDist)return p
  }
- return false
+ return null
+}
+function actorBlocked(x,y,r,who){
+ return !!blockingActor(x,y,r,who)
 }
 function canMove(x,y,who=null){
  return pointInFloors(x,y)&&!staticBlocked(x,y,PLAYER_RADIUS)&&!actorBlocked(x,y,PLAYER_RADIUS,who)
 }
+function canMoveStatic(x,y,r=PLAYER_RADIUS){
+ return pointInFloors(x,y,r)&&!staticBlocked(x,y,r)
+}
+function tryMovePlayer(nx,ny){
+ if(canMove(nx,ny,me)){me.x=nx;me.y=ny;return true}
+
+ if(canMoveStatic(nx,ny,PLAYER_RADIUS)){
+  const blocker=blockingActor(nx,ny,PLAYER_RADIUS,me);
+  if(blocker&&!blocker.human){
+   let dx=blocker.x-me.x,dy=blocker.y-me.y,d=Math.hypot(dx,dy)||1;
+   dx/=d;dy/=d;
+   const push=4;
+   if(canMove(blocker.x+dx*push,blocker.y+dy*push,blocker)){
+    blocker.x+=dx*push;blocker.y+=dy*push;
+    blocker.path=[];blocker.pathIndex=0;blocker.repathCd=0;
+    if(canMove(nx,ny,me)){me.x=nx;me.y=ny;return true}
+   }
+  }
+ }
+ return false
+}
+
 function roomAt(x,y){return floorRoom(x,y)}
 function safePoint(roomName,ignoreActor=null){
  const candidates=FLOOR_RECTS.filter(r=>!roomName||r.room===roomName);
@@ -219,7 +247,6 @@ document.querySelector("#relBtn").onclick=showRelationships;
 document.querySelector("#collisionBtn").onclick=toggleCollisionDebug;
 document.querySelector("#npcDebugBtn").onclick=showNpcDebug;
 document.querySelector("#powersBtn").onclick=showPowers;document.querySelector("#missionsBtn").onclick=showMission;document.querySelector("#profileBtn").onclick=showProfile;document.querySelector("#howBtn").onclick=showHowTo;document.querySelector("#modalClose").onclick=()=>{if(phase==="social")closeModal()};
-const keys=Object.create(null);
 addEventListener("keydown",e=>{
  const k=e.key.toLowerCase();
  if(k===" " && dialogueOpen){e.preventDefault();advanceDialogue();return}
@@ -230,7 +257,8 @@ addEventListener("keydown",e=>{
  if(k==="f"&&phase==="social")action()
 });
 addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
-addEventListener("blur",()=>{Object.keys(keys).forEach(k=>keys[k]=false)});
+document.addEventListener("visibilitychange",()=>{if(document.hidden)for(var k in keys)keys[k]=false});
+addEventListener("blur",()=>{for(var k in keys)keys[k]=false});
 
 
 const NAV_STEP=12;
@@ -238,19 +266,20 @@ const NAV_STEP=12;
 function navKey(x,y){return `${Math.round(x/NAV_STEP)},${Math.round(y/NAV_STEP)}`}
 function snapNav(v){return Math.round(v/NAV_STEP)*NAV_STEP}
 
-function navWalkable(x,y,who=null){
- return pointInFloors(x,y,8)&&!staticBlocked(x,y,8)&&!actorBlocked(x,y,7,who)
+function navWalkable(x,y){
+ // Rotas consideram apenas paredes/móveis. Outros personagens são dinâmicos.
+ return pointInFloors(x,y,8)&&!staticBlocked(x,y,8)
 }
 
-function findNearestWalkable(x,y,who=null){
+function findNearestWalkable(x,y){
  const sx=snapNav(x),sy=snapNav(y);
- if(navWalkable(sx,sy,who))return [sx,sy];
+ if(navWalkable(sx,sy))return [sx,sy];
  for(let radius=1;radius<=8;radius++){
   for(let dx=-radius;dx<=radius;dx++){
    for(let dy=-radius;dy<=radius;dy++){
     if(Math.abs(dx)!==radius&&Math.abs(dy)!==radius)continue;
     const nx=sx+dx*NAV_STEP,ny=sy+dy*NAV_STEP;
-    if(navWalkable(nx,ny,who))return [nx,ny]
+    if(navWalkable(nx,ny))return [nx,ny]
    }
   }
  }
@@ -258,7 +287,7 @@ function findNearestWalkable(x,y,who=null){
 }
 
 function findPath(sx,sy,tx,ty,who=null,maxNodes=1800){
- const start=findNearestWalkable(sx,sy,who),goal=findNearestWalkable(tx,ty,who);
+ const start=findNearestWalkable(sx,sy),goal=findNearestWalkable(tx,ty);
  if(!start||!goal)return [];
  const sk=navKey(start[0],start[1]),gk=navKey(goal[0],goal[1]);
  if(sk===gk)return [goal];
@@ -271,7 +300,7 @@ function findPath(sx,sy,tx,ty,who=null,maxNodes=1800){
   const cur=queue[qi++],ck=navKey(cur[0],cur[1]);
   for(const [dx,dy] of dirs){
    const nx=cur[0]+dx*NAV_STEP,ny=cur[1]+dy*NAV_STEP,nk=navKey(nx,ny);
-   if(came.has(nk)||!navWalkable(nx,ny,who))continue;
+   if(came.has(nk)||!navWalkable(nx,ny))continue;
    came.set(nk,ck);coords.set(nk,[nx,ny]);
 
    if(nk===gk){
@@ -349,7 +378,7 @@ function makePerson(name,x,y,c,human=false){
  const key=human?"theo":name.toLowerCase();
  return{name,x,y,c,human,alive:true,tx:x,ty:y,mood:pick(moods),wins:0,zone:roomAt(x,y),change:0,
  facing:"down",walkFrame:0,sprite:key,path:[],pathIndex:0,repathCd:0,
- behaviorCd:rnd(3,8),activity:"observando",socialTarget:null,stuck:0,lastX:x,lastY:y}
+ behaviorCd:rnd(3,8),activity:"observando",socialTarget:null,stuck:0,lastX:x,lastY:y,avoidCd:0,waitCd:0}
 }
 function start(){
  const name=document.querySelector("#name").value.trim()||"Jogador";
@@ -365,8 +394,14 @@ function start(){
  people=[makePerson(name,405,286,playerColor,true)];
  BOT_NAMES.forEach((n,i)=>{
    const zones=["SALA","COZINHA","HALL","PÁTIO / PISCINA","QUARTO","LOUNGE"];
-   const p=safePoint(zones[i%zones.length]);
-   people.push(makePerson(n,p[0],p[1],COLORS[i+1]))
+   const zone=zones[i%zones.length];
+   let pos=null;
+   for(let tries=0;tries<80;tries++){
+    const candidate=safePoint(zone);
+    if(people.every(o=>Math.hypot(candidate[0]-o.x,candidate[1]-o.y)>34)){pos=candidate;break}
+   }
+   pos=pos||safePoint(zone);
+   people.push(makePerson(n,pos[0],pos[1],COLORS[i+1]))
  });
  me=people[0];
  if(!me)throw new Error("Participante principal não foi criado.");
@@ -387,7 +422,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa e portais concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.1.6");
+ toast("CASA EM JOGO • V1.1.8");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -442,28 +477,39 @@ function update(dt){
    if(moving)me.walkFrame=(me.walkFrame+dt*(sprint?9:6))%4;
    // eixo separado = personagem desliza pela parede em vez de travar inteiro
    const nx=me.x+dx*speed*dt;
-   if(canMove(nx,me.y,me))me.x=nx;
+   tryMovePlayer(nx,me.y);
    const ny=me.y+dy*speed*dt;
-   if(canMove(me.x,ny,me))me.y=ny;
+   tryMovePlayer(me.x,ny);
  }
- updateBots(dt);near=findNear();doorNear=nearestPortal(me);
+ if(!uiBlocking())updateBots(dt);
+ near=findNear();doorNear=nearestPortal(me);
  if(eventCd<=0 && !uiBlocking() && phase==="social"){randomEvent();eventCd=rnd(19,31)}
  if(!uiBlocking()){time-=dt;if(time<=0)startChallenge()}
 }
 function updateBots(dt){
  people.filter(p=>!p.human&&p.alive).forEach(p=>{
   p.repathCd=Math.max(0,(p.repathCd||0)-dt);
+  p.avoidCd=Math.max(0,(p.avoidCd||0)-dt);
+  p.waitCd=Math.max(0,(p.waitCd||0)-dt);
+
+  if(p.waitCd>0){
+   npcSocialTick(p,dt);
+   return
+  }
 
   if(!p.path||p.pathIndex>=p.path.length||p.repathCd<=0){
    chooseNpcDestination(p)
   }
+
+  let moved=false;
 
   if(p.path&&p.pathIndex<p.path.length){
    const wp=p.path[p.pathIndex];
    const dx=wp[0]-p.x,dy=wp[1]-p.y,d=Math.hypot(dx,dy);
 
    if(d<5){
-    p.pathIndex++
+    p.pathIndex++;
+    if(p.pathIndex>=p.path.length)p.waitCd=rnd(.4,1.4)
    }else{
     const vx=dx/d,vy=dy/d;
     if(Math.abs(vx)>Math.abs(vy))p.facing=vx>0?"right":"left";
@@ -471,32 +517,49 @@ function updateBots(dt){
 
     const speed=p.activity==="descansando"?27:44;
     const step=Math.min(speed*dt,d);
-    const ox=p.x,oy=p.y,nx=p.x+vx*step,ny=p.y+vy*step;
+    const ox=p.x,oy=p.y;
+    const nx=p.x+vx*step,ny=p.y+vy*step;
 
     if(canMove(nx,ny,p)){
-     p.x=nx;p.y=ny
+     p.x=nx;p.y=ny;moved=true
     }else{
-     if(canMove(nx,p.y,p))p.x=nx;
-     if(canMove(p.x,ny,p))p.y=ny
+     if(canMove(nx,p.y,p)){p.x=nx;moved=true}
+     if(canMove(p.x,ny,p)){p.y=ny;moved=true}
+
+     if(!moved&&p.avoidCd<=0){
+      const sideX=-vy,sideY=vx;
+      for(const [sx,sy] of [
+       [p.x+sideX*9,p.y+sideY*9],
+       [p.x-sideX*9,p.y-sideY*9]
+      ]){
+       if(canMove(sx,sy,p)){p.x=sx;p.y=sy;moved=true;p.avoidCd=.3;break}
+      }
+     }
     }
 
-    if(Math.hypot(p.x-ox,p.y-oy)>.04){
+    if(moved&&Math.hypot(p.x-ox,p.y-oy)>.04){
      p.walkFrame=(p.walkFrame+dt*5.5)%4
     }
    }
   }
 
   const displacement=Math.hypot(p.x-(p.lastX??p.x),p.y-(p.lastY??p.y));
-  p.stuck=displacement<.06?(p.stuck||0)+dt:0;
+  p.stuck=displacement<.05?(p.stuck||0)+dt:0;
   p.lastX=p.x;p.lastY=p.y;
 
-  if(p.stuck>1.2){
-   p.path=[];p.pathIndex=0;p.repathCd=0;p.stuck=0;
-   for(const [dx,dy] of [[12,0],[-12,0],[0,12],[0,-12]]){
-    if(canMove(p.x+dx,p.y+dy,p)){
-     p.x+=dx;p.y+=dy;break
+  if(p.stuck>.55&&p.stuck<=1.15){
+   p.path=[];p.pathIndex=0;p.repathCd=0
+  }
+
+  if(p.stuck>1.15){
+   let escaped=false;
+   for(const [sx,sy] of [[10,0],[-10,0],[0,10],[0,-10],[8,8],[-8,8],[8,-8],[-8,-8]]){
+    if(canMove(p.x+sx,p.y+sy,p)){
+     p.x+=sx;p.y+=sy;escaped=true;break
     }
    }
+   p.path=[];p.pathIndex=0;p.repathCd=0;p.stuck=0;
+   if(!escaped)p.waitCd=.45
   }
 
   npcSocialTick(p,dt)
@@ -834,7 +897,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.1.6] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.1.8] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
