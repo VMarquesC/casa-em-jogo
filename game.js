@@ -217,6 +217,7 @@ document.querySelector("#musicBtn").onclick=toggleMusic;
 document.querySelector("#gossipBtn").onclick=showGossip;
 document.querySelector("#relBtn").onclick=showRelationships;
 document.querySelector("#collisionBtn").onclick=toggleCollisionDebug;
+document.querySelector("#npcDebugBtn").onclick=showNpcDebug;
 document.querySelector("#powersBtn").onclick=showPowers;document.querySelector("#missionsBtn").onclick=showMission;document.querySelector("#profileBtn").onclick=showProfile;document.querySelector("#howBtn").onclick=showHowTo;document.querySelector("#modalClose").onclick=()=>{if(phase==="social")closeModal()};
 addEventListener("keydown",e=>{
  const k=e.key.toLowerCase();
@@ -230,9 +231,124 @@ addEventListener("keydown",e=>{
 addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
 addEventListener("blur",()=>{Object.keys(keys).forEach(k=>keys[k]=false)});
 
+
+const NAV_STEP=12;
+
+function navKey(x,y){return `${Math.round(x/NAV_STEP)},${Math.round(y/NAV_STEP)}`}
+function snapNav(v){return Math.round(v/NAV_STEP)*NAV_STEP}
+
+function navWalkable(x,y,who=null){
+ return pointInFloors(x,y,8)&&!staticBlocked(x,y,8)&&!actorBlocked(x,y,7,who)
+}
+
+function findNearestWalkable(x,y,who=null){
+ const sx=snapNav(x),sy=snapNav(y);
+ if(navWalkable(sx,sy,who))return [sx,sy];
+ for(let radius=1;radius<=8;radius++){
+  for(let dx=-radius;dx<=radius;dx++){
+   for(let dy=-radius;dy<=radius;dy++){
+    if(Math.abs(dx)!==radius&&Math.abs(dy)!==radius)continue;
+    const nx=sx+dx*NAV_STEP,ny=sy+dy*NAV_STEP;
+    if(navWalkable(nx,ny,who))return [nx,ny]
+   }
+  }
+ }
+ return null
+}
+
+function findPath(sx,sy,tx,ty,who=null,maxNodes=1800){
+ const start=findNearestWalkable(sx,sy,who),goal=findNearestWalkable(tx,ty,who);
+ if(!start||!goal)return [];
+ const sk=navKey(start[0],start[1]),gk=navKey(goal[0],goal[1]);
+ if(sk===gk)return [goal];
+
+ const queue=[start],came=new Map([[sk,null]]),coords=new Map([[sk,start]]);
+ let qi=0,visited=0;
+ const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+
+ while(qi<queue.length&&visited++<maxNodes){
+  const cur=queue[qi++],ck=navKey(cur[0],cur[1]);
+  for(const [dx,dy] of dirs){
+   const nx=cur[0]+dx*NAV_STEP,ny=cur[1]+dy*NAV_STEP,nk=navKey(nx,ny);
+   if(came.has(nk)||!navWalkable(nx,ny,who))continue;
+   came.set(nk,ck);coords.set(nk,[nx,ny]);
+
+   if(nk===gk){
+    const path=[];let k=nk;
+    while(k&&k!==sk){path.push(coords.get(k));k=came.get(k)}
+    path.reverse();
+    return path
+   }
+   queue.push([nx,ny])
+  }
+ }
+ return []
+}
+
+function chooseNpcDestination(p){
+ const room=roomAt(p.x,p.y);
+ const sameRoom=people.filter(o=>o!==p&&o.alive&&roomAt(o.x,o.y)===room);
+ let target;
+
+ if(sameRoom.length&&Math.random()<.35){
+  const other=pick(sameRoom),angle=Math.random()*Math.PI*2;
+  target=[other.x+Math.cos(angle)*34,other.y+Math.sin(angle)*34];
+  p.activity=Math.random()<.5?"conversando":"fofocando";
+  p.socialTarget=other.name
+ }else{
+  target=safePoint(room,p);
+  p.activity=pick(["passeando","observando","descansando"]);
+  p.socialTarget=null
+ }
+
+ p.path=findPath(p.x,p.y,target[0],target[1],p);
+ p.pathIndex=0;
+ p.repathCd=rnd(3,6);
+
+ if(!p.path.length){
+  for(let i=0;i<28;i++){
+   const a=Math.random()*Math.PI*2,d=rnd(28,88);
+   const path=findPath(p.x,p.y,p.x+Math.cos(a)*d,p.y+Math.sin(a)*d,p,600);
+   if(path.length){p.path=path;break}
+  }
+ }
+}
+
+function npcSocialTick(p,dt){
+ p.behaviorCd=(p.behaviorCd??rnd(4,8))-dt;
+ if(p.behaviorCd>0)return;
+ p.behaviorCd=rnd(5,11);
+
+ const sameRoom=people.filter(o=>o!==p&&o.alive&&roomAt(o.x,o.y)===roomAt(p.x,p.y));
+ const close=sameRoom.filter(o=>Math.hypot(o.x-p.x,o.y-p.y)<58);
+
+ if(close.length){
+  const other=pick(close);
+  p.mood=pick(["Conversando","Fofocando","Planejando"]);
+  if(Math.hypot(p.x-me.x,p.y-me.y)<170){
+   showNpcBubble(p,pick([
+    "Você acha que a votação vai mudar?",
+    "Não espalha o que eu te falei.",
+    "Tem gente jogando dos dois lados.",
+    "Quero ganhar a próxima prova.",
+    "Ainda não sei em quem confiar."
+   ]))
+  }
+  if(Math.random()<.25)addFeed(`💬 ${p.name} e ${other.name} conversaram pela casa.`)
+ }else if(Math.hypot(p.x-me.x,p.y-me.y)<145&&Math.random()<.4){
+  showNpcBubble(p,pick([
+   "Hmm...",
+   "Preciso pensar no meu voto.",
+   "Essa casa está estranha.",
+   "Quero falar com alguém."
+  ]))
+ }
+}
 function makePerson(name,x,y,c,human=false){
  const key=human?"theo":name.toLowerCase();
- return{name,x,y,c,human,alive:true,tx:x,ty:y,mood:pick(moods),wins:0,zone:roomAt(x,y),change:0,facing:"down",walkFrame:0,sprite:key}
+ return{name,x,y,c,human,alive:true,tx:x,ty:y,mood:pick(moods),wins:0,zone:roomAt(x,y),change:0,
+ facing:"down",walkFrame:0,sprite:key,path:[],pathIndex:0,repathCd:0,
+ behaviorCd:rnd(3,8),activity:"observando",socialTarget:null,stuck:0,lastX:x,lastY:y}
 }
 function start(){
  const name=document.querySelector("#name").value.trim()||"Jogador";
@@ -270,7 +386,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa e portais concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.1.4");
+ toast("CASA EM JOGO • V1.1.5");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -335,38 +451,54 @@ function update(dt){
 }
 function updateBots(dt){
  people.filter(p=>!p.human&&p.alive).forEach(p=>{
-  p.change-=dt;
-  const currentRoom=roomAt(p.x,p.y);
-  if(p.change<=0||Math.hypot(p.tx-p.x,p.ty-p.y)<7||staticBlocked(p.tx,p.ty)){
-   // Patrulha SOMENTE no mesmo cômodo. Sem teleporte aleatório.
-   let sp=null;
-   for(let tries=0;tries<20;tries++){
-     const candidate=safePoint(currentRoom,p);
-     if(Math.hypot(candidate[0]-p.x,candidate[1]-p.y)<150){sp=candidate;break}
-   }
-   if(!sp)sp=safePoint(currentRoom,p);
-   p.tx=sp[0];p.ty=sp[1];p.change=rnd(2.5,6.5);p.mood=pick(moods)
-  }
-  const d=Math.hypot(p.tx-p.x,p.ty-p.y)||1;
-  const vx=(p.tx-p.x)/d,vy=(p.ty-p.y)/d;
-  if(Math.abs(vx)>Math.abs(vy))p.facing=vx>0?"right":"left";else p.facing=vy>0?"down":"up";
-  p.walkFrame=(p.walkFrame+dt*4.5)%4;
-  const nx=p.x+vx*37*dt;
-  let moved=false;
-  if(canMove(nx,p.y,p)){p.x=nx;moved=true}
-  const ny=p.y+vy*37*dt;
-  if(canMove(p.x,ny,p)){p.y=ny;moved=true}
-  if(!moved){
-    p.stuck=(p.stuck||0)+dt;
-    if(p.stuck>.35){const sp=safePoint(currentRoom,p);p.tx=sp[0];p.ty=sp[1];p.change=rnd(1.5,3.5);p.stuck=0}
-  }else p.stuck=0
+  p.repathCd=Math.max(0,(p.repathCd||0)-dt);
 
-  // falas espontâneas ocasionais, sem alterar posição
-  p.speakCd=(p.speakCd??rnd(7,16))-dt;
-  if(p.speakCd<=0 && Math.hypot(p.x-me.x,p.y-me.y)<150){
-    showNpcBubble(p,pick(["Hmm...","Preciso falar com alguém.","Essa votação vai pegar fogo.","Não confio em todo mundo.","Quero ganhar a próxima prova."]));
-    p.speakCd=rnd(12,24)
+  if(!p.path||p.pathIndex>=p.path.length||p.repathCd<=0){
+   chooseNpcDestination(p)
   }
+
+  if(p.path&&p.pathIndex<p.path.length){
+   const wp=p.path[p.pathIndex];
+   const dx=wp[0]-p.x,dy=wp[1]-p.y,d=Math.hypot(dx,dy);
+
+   if(d<5){
+    p.pathIndex++
+   }else{
+    const vx=dx/d,vy=dy/d;
+    if(Math.abs(vx)>Math.abs(vy))p.facing=vx>0?"right":"left";
+    else p.facing=vy>0?"down":"up";
+
+    const speed=p.activity==="descansando"?27:44;
+    const step=Math.min(speed*dt,d);
+    const ox=p.x,oy=p.y,nx=p.x+vx*step,ny=p.y+vy*step;
+
+    if(canMove(nx,ny,p)){
+     p.x=nx;p.y=ny
+    }else{
+     if(canMove(nx,p.y,p))p.x=nx;
+     if(canMove(p.x,ny,p))p.y=ny
+    }
+
+    if(Math.hypot(p.x-ox,p.y-oy)>.04){
+     p.walkFrame=(p.walkFrame+dt*5.5)%4
+    }
+   }
+  }
+
+  const displacement=Math.hypot(p.x-(p.lastX??p.x),p.y-(p.lastY??p.y));
+  p.stuck=displacement<.06?(p.stuck||0)+dt:0;
+  p.lastX=p.x;p.lastY=p.y;
+
+  if(p.stuck>1.2){
+   p.path=[];p.pathIndex=0;p.repathCd=0;p.stuck=0;
+   for(const [dx,dy] of [[12,0],[-12,0],[0,12],[0,-12]]){
+    if(canMove(p.x+dx,p.y+dy,p)){
+     p.x+=dx;p.y+=dy;break
+    }
+   }
+  }
+
+  npcSocialTick(p,dt)
  })
 }
 function findNear(){let best=null,bd=55;people.filter(p=>p!==me&&p.alive).forEach(p=>{let d=dist(me.x,me.y,p.x,p.y);if(d<bd){bd=d;best=p}});return best}
@@ -682,25 +814,31 @@ function showNpcBubble(p,text){
 function runSelfTest(){
  const issues=[];
  const spawn=[405,286];
- if(!pointInFloors(spawn[0],spawn[1])||staticBlocked(spawn[0],spawn[1]))issues.push("Spawn principal inválido");
- for(const p of PORTALS){
+
+ if(!pointInFloors(spawn[0],spawn[1])||staticBlocked(spawn[0],spawn[1])){
+  issues.push("Spawn principal inválido")
+ }
+
+ for(const portal of PORTALS){
   for(const side of ["A","B"]){
-   const x=p[side.toLowerCase()+"x"],y=p[side.toLowerCase()+"y"];
-   if(!rawFloorPoint(x,y))issues.push(`Portal ${p.name} ${side} fora do piso`);
-   if(staticBlocked(x,y,6))issues.push(`Portal ${p.name} ${side} dentro de obstáculo`);
+   const x=portal[side.toLowerCase()+"x"],y=portal[side.toLowerCase()+"y"];
+   if(!rawFloorPoint(x,y))issues.push(`Portal ${portal.name} ${side} fora do piso`)
   }
  }
- for(const room of [...new Set(FLOOR_RECTS.map(r=>r.room))]){
-   const p=safePoint(room);
-   if(!rawFloorPoint(p[0],p[1])||staticBlocked(p[0],p[1]))issues.push(`Sem ponto seguro em ${room}`)
- }
- if(typeof WALK!=="undefined")issues.push("Variável WALK antiga ainda existe");
- console.log("[Casa em Jogo V1.1.4] autoteste:",issues.length?issues:"OK");
+
+ people.filter(p=>!p.human).forEach(p=>{
+  const room=roomAt(p.x,p.y);
+  const dest=safePoint(room,p);
+  const path=findPath(p.x,p.y,dest[0],dest[1],p,1200);
+  if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
+ });
+
+ console.log("[Casa em Jogo V1.1.5] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
 function normalizeStats(){stats.energy=Math.max(0,Math.min(115,Number.isFinite(stats.energy)?stats.energy:0));stats.social=Math.max(0,Math.min(100,Number.isFinite(stats.social)?stats.social:0));stats.rep=Math.max(0,Math.min(100,Number.isFinite(stats.rep)?stats.rep:0));stats.coins=Math.max(0,Number.isFinite(stats.coins)?stats.coins:0)}
-function ui(){if(!me)return;normalizeStats();document.querySelector("#energy").textContent=Math.round(stats.energy);document.querySelector("#social").textContent=Math.round(stats.social);document.querySelector("#rep").textContent=Math.round(stats.rep);document.querySelector("#coins").textContent=Math.round(stats.coins);document.querySelector("#roomBadge").textContent=roomAt(me.x,me.y)+(collisionDebug?" • DEBUG":"");const mc=activeMission?Math.min(activeMission.goal,missionCurrent()):0;document.querySelector("#missionShort").textContent=activeMission?`${activeMission.text} ${mc}/${activeMission.goal}`:"Sem missão";document.querySelector("#round").textContent=`RODADA ${round} • ${phase==="social"?"CONVIVÊNCIA":phase==="challenge"?"PROVA":"CERIMÔNIA"}`;document.querySelector("#timer").textContent=phase==="social"?`${String(Math.floor(Math.max(0,time)/60)).padStart(2,"0")}:${String(Math.ceil(Math.max(0,time)%60)).padStart(2,"0")}`:"EVENTO";document.querySelector("#event").textContent=eventName||(phase==="social"?"Convivência livre":"Evento em andamento");const night=round%3===0;document.querySelector("#dayLabel").textContent=`DIA ${round} ${night?"🌙":"☀️"}`;document.querySelector("#dayOverlay").style.opacity=night?".23":"0";document.querySelector("#players").innerHTML=people.map(p=>{const rel=relationship[p.name],key=p.human?"theo":p.name.toLowerCase(),r=p===me?"Você":(rel?`🤝${rel.trust} 👁${rel.suspicion}`:"");return `<div class="person ${p.alive?"":"dead"}"><img src="assets/portraits/${key}.png"><div><span class="pname">${p.name}</span><span class="pmeta">${p.alive?p.mood:"eliminado"}</span></div><span class="relation-mini">${r}</span></div>`}).join("");document.querySelector("#feed").innerHTML=feed.map(f=>`<div class="eventline">${f}</div>`).join("")}
+function ui(){if(!me)return;normalizeStats();document.querySelector("#energy").textContent=Math.round(stats.energy);document.querySelector("#social").textContent=Math.round(stats.social);document.querySelector("#rep").textContent=Math.round(stats.rep);document.querySelector("#coins").textContent=Math.round(stats.coins);document.querySelector("#roomBadge").textContent=roomAt(me.x,me.y)+(collisionDebug?" • DEBUG":"");const mc=activeMission?Math.min(activeMission.goal,missionCurrent()):0;document.querySelector("#missionShort").textContent=activeMission?`${activeMission.text} ${mc}/${activeMission.goal}`:"Sem missão";document.querySelector("#round").textContent=`RODADA ${round} • ${phase==="social"?"CONVIVÊNCIA":phase==="challenge"?"PROVA":"CERIMÔNIA"}`;document.querySelector("#timer").textContent=phase==="social"?`${String(Math.floor(Math.max(0,time)/60)).padStart(2,"0")}:${String(Math.ceil(Math.max(0,time)%60)).padStart(2,"0")}`:"EVENTO";document.querySelector("#event").textContent=eventName||(phase==="social"?"Convivência livre":"Evento em andamento");const night=round%3===0;document.querySelector("#dayLabel").textContent=`DIA ${round} ${night?"🌙":"☀️"}`;document.querySelector("#dayOverlay").style.opacity=night?".23":"0";document.querySelector("#players").innerHTML=people.map(p=>{const rel=relationship[p.name],key=p.human?"theo":p.name.toLowerCase(),r=p===me?"Você":(rel?`🤝${rel.trust} 👁${rel.suspicion}`:"");return `<div class="person ${p.alive?"":"dead"}"><img src="assets/portraits/${key}.png"><div><span class="pname">${p.name}</span><span class="pmeta">${p.alive?(p.human?p.mood:`${p.mood} • ${p.activity||"pela casa"}`):"eliminado"}</span></div><span class="relation-mini">${r}</span></div>`}).join("");document.querySelector("#feed").innerHTML=feed.map(f=>`<div class="eventline">${f}</div>`).join("")}
 function alivePeople(){return people.filter(p=>p.alive)}
 function addFeed(t){feed.unshift(t);feed=feed.slice(0,11)}
 function modal(title,text,choices,cb){document.querySelector("#modal").classList.remove("hidden");document.querySelector("#modalClose").style.display=(phase==="social"?"block":"none");document.querySelector("#modalTitle").textContent=title;document.querySelector("#modalText").textContent=text;let q=document.querySelector("#choices");q.innerHTML="";choices.forEach(c=>{let b=document.createElement("button");b.className="choice";b.textContent=c;b.onclick=()=>cb(c);q.appendChild(b)})}

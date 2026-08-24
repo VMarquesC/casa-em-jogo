@@ -1,21 +1,43 @@
-CASA EM JOGO — V1.1.4 BUGFIX
+CASA EM JOGO — V1.1.5 NPCFIX
 
-Correções:
-- removido o mapa Base64 de dentro do game.js;
-- game.js reduzido para 44.2 KB;
-- início não depende do carregamento do mapa;
-- apenas um loop requestAnimationFrame;
-- proteção contra loop de erro infinito;
-- cooldown de ações corrigido;
-- teclado bloqueado corretamente em menus;
-- limites de stats normalizados;
-- timer de eventos estabilizado;
-- diálogo antigo limpo no início.
+CORREÇÃO PRINCIPAL
+A IA antiga tentava andar em linha reta até um ponto aleatório.
+Com móveis e paredes no caminho, os NPCs podiam ficar recalculando
+destinos e praticamente nunca sair do lugar.
 
-QA:
-- node --check OK;
-- mapa 1024x765;
-- 8 sprites e 8 retratos;
-- IDs DOM válidos (runtimeError é criado dinamicamente);
-- nenhuma função duplicada;
-- nenhuma referência WALK antiga.
+Agora os NPCs usam PATHFINDING EM GRADE.
+
+COMPORTAMENTOS
+- passear pelo cômodo
+- contornar paredes e móveis
+- procurar outros participantes
+- conversar
+- fofocar
+- observar
+- descansar
+- falar espontaneamente perto do jogador
+- recalcular a rota ao ficar preso
+
+DEBUG
+O botão "IA NPC" mostra:
+- cômodo
+- atividade
+- nós restantes na rota
+- coordenadas
+
+CORREÇÕES ADICIONAIS
+- detector de NPC preso
+- slide em quinas
+- rota curta de fallback
+- lista lateral mostra atividade dos bots
+- autoteste verifica geração de rotas
+
+VALIDAÇÕES FEITAS DUAS VEZES
+- JavaScript: node --check OK
+- IDs HTML/JS: OK
+- elementos dinâmicos reconhecidos
+- funções críticas sem duplicação
+- 8 sprites presentes
+- 8 retratos presentes
+- mapa presente
+- código antigo de patrulha removido
