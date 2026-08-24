@@ -1,0 +1,25 @@
+CASA EM JOGO — V0.4
+
+
+CONTROLES
+WASD/setas: andar
+E: conversar
+F: ação do cômodo
+
+NOVIDADES
+- Música procedural dentro do navegador (sem arquivo externo)
+- Botão para ligar/desligar música
+- Bate-papo com opções de conversa
+- Perguntar voto
+- Propor aliança
+- Espalhar fofoca
+- Provocar participantes
+- Central de Fofocas
+- Mais eventos da produção
+- 3 tipos de prova: Reflexo, Memória e Caixas
+- Sistema de alianças, social, reputação e energia
+- Casa e HUD com mais detalhes
+- Continua 100% offline e sem instalação
+
+PIXEL ART
+A pasta assets continua pronta para receber PNGs/spritesheets.

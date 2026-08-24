@@ -1,0 +1,10 @@
+Sugestão:
+player.png = personagem principal
+characters.png = spritesheet dos participantes
+tiles_house.png = pisos/paredes
+furniture.png = móveis
+
+PNG com fundo transparente.
+Para personagem: comece com 32x48 pixels por frame.
+Faça 4 direções: baixo, esquerda, direita, cima.
+3 ou 4 frames de caminhada para cada direção.
