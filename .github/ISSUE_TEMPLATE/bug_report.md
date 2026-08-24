@@ -1,6 +1,6 @@
 ---
 name: Bug report
-aabout: Relatar um problema no Casa em Jogo
+about: Relatar um problema no Casa em Jogo
 title: "[BUG] "
 labels: ""
 assignees: ""
