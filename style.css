@@ -190,3 +190,242 @@ button:active{transform:scale(.97)}
  font-size:12px;
  opacity:.72;
 }
+
+
+/* ==========================================================
+   V1.7 SHOWTIME — FULL UI REDESIGN
+   ========================================================== */
+
+/* --- landing --- */
+#start{
+ position:relative;
+ display:none;
+ min-height:100%;
+ padding:0;
+ overflow:auto;
+ background:#060812;
+}
+#start.active{display:block}
+.landing{
+ position:relative;
+ z-index:2;
+ width:min(1180px,94vw);
+ margin:0 auto;
+ padding:28px 0 44px;
+}
+.landing-noise{
+ position:absolute;inset:0;opacity:.12;pointer-events:none;
+ background-image:radial-gradient(#fff 0.6px,transparent .7px);
+ background-size:8px 8px;
+}
+.landing-glow{position:absolute;border-radius:50%;filter:blur(2px);pointer-events:none}
+.glow-a{width:520px;height:520px;left:-180px;top:-170px;background:radial-gradient(circle,rgba(126,67,255,.22),transparent 70%)}
+.glow-b{width:560px;height:560px;right:-230px;bottom:-220px;background:radial-gradient(circle,rgba(39,207,255,.14),transparent 70%)}
+.landing-top{
+ display:flex;align-items:center;justify-content:space-between;
+ padding:0 4px 22px;border-bottom:1px solid rgba(255,255,255,.09);
+}
+.landing-logo{display:flex;align-items:center;gap:11px}
+.landing-logo b{display:block;font-size:14px;letter-spacing:.06em}
+.landing-logo small{display:block;font-size:8px;letter-spacing:.21em;color:#74849d;margin-top:2px}
+.live-dot{width:9px;height:9px;border-radius:50%;background:#ff385d;box-shadow:0 0 14px #ff385d}
+.landing-season{
+ color:#8796ad;font-size:9px;font-weight:900;letter-spacing:.15em;
+ border:1px solid rgba(255,255,255,.1);padding:8px 11px;border-radius:999px
+}
+.landing-season span{color:#64d8ff}
+.landing-grid{
+ display:grid;grid-template-columns:minmax(0,1.15fr) minmax(360px,.72fr);
+ gap:54px;align-items:center;padding-top:54px;
+}
+.landing-story .eyebrow{font-size:10px;letter-spacing:.25em;color:#6fdcff;font-weight:900;margin-bottom:14px}
+.landing-story h1{
+ margin:0;font-size:clamp(58px,7.2vw,102px);line-height:.78;
+ letter-spacing:-.065em;font-weight:1000;color:#f6f8ff;
+}
+.landing-story h1 em{font-style:normal;color:#ffd760}
+.landing-story>p{
+ max-width:650px;margin:26px 0;color:#a9b6ca;line-height:1.6;font-size:16px;
+}
+.show-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:24px}
+.show-cards article{
+ min-width:0;display:flex;gap:10px;padding:13px;border-radius:14px;
+ background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09)
+}
+.show-cards article>span{font-size:20px}
+.show-cards b{font-size:9px;letter-spacing:.07em;display:block}
+.show-cards small{font-size:9px;color:#78879e;line-height:1.35;display:block;margin-top:4px}
+.cast-strip{display:flex;align-items:center;gap:8px;margin-top:28px}
+.cast-strip>div{
+ width:58px;height:68px;position:relative;border-radius:10px;overflow:hidden;
+ border:1px solid rgba(255,255,255,.12);background:#101626;
+}
+.cast-strip img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
+.cast-strip span{
+ position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:8px;font-weight:900;
+ padding:9px 2px 4px;background:linear-gradient(transparent,#050710);
+}
+.cast-strip .cast-more{
+ display:flex;flex-direction:column;align-items:center;justify-content:center;
+ color:#aab5c7;font-weight:1000;font-size:14px;
+}
+.cast-more small{font-size:7px;color:#65738a}
+
+.entry-card{
+ padding:28px;border-radius:24px;
+ border:1px solid rgba(255,255,255,.12);
+ background:linear-gradient(165deg,rgba(20,27,47,.96),rgba(9,13,25,.96));
+ box-shadow:0 28px 90px rgba(0,0,0,.45);
+}
+.entry-step{font-size:8px;font-weight:900;letter-spacing:.18em;color:#6bdcff}
+.entry-head h2{font-size:28px;margin:6px 0 5px;letter-spacing:-.04em}
+.entry-head p{margin:0;color:#8392a8;font-size:11px;line-height:1.45}
+.entry-preview{
+ display:flex;align-items:center;gap:13px;margin:20px 0 16px;padding:12px;
+ border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(255,255,255,.035)
+}
+.portrait-ring{
+ width:58px;height:58px;border-radius:14px;padding:2px;
+ background:linear-gradient(135deg,#ffd760,#5bdcff,#9a63ff)
+}
+.portrait-ring img{
+ width:100%;height:100%;border-radius:12px;object-fit:cover;image-rendering:pixelated;background:#121a2c
+}
+.entry-preview small,.entry-preview strong,.entry-preview span{display:block}
+.entry-preview small{font-size:7px;letter-spacing:.12em;color:#78879d}
+.entry-preview strong{font-size:20px;margin:2px 0}
+.entry-preview span{font-size:10px;color:#69dfff}
+.entry-card label{margin:14px 0 7px}
+.entry-card input{
+ background:#080d18;border-color:#2a3b55;border-radius:10px;padding:12px 13px
+}
+.new-traits{grid-template-columns:1fr 1fr}
+.new-traits .trait{
+ min-height:60px;border-color:#273951;background:#0d1525;border-radius:11px
+}
+.new-traits .trait.selected{
+ border-color:#6cdcff;background:linear-gradient(135deg,rgba(33,96,129,.32),rgba(84,53,145,.25));
+ box-shadow:inset 0 0 0 1px rgba(108,220,255,.18)
+}
+.enter-house{
+ width:100%;margin-top:18px;display:flex;align-items:center;justify-content:space-between;
+ padding:13px 15px;border:0;border-radius:13px;color:#071019;cursor:pointer;
+ background:linear-gradient(100deg,#ffd659,#67e1ff);font-weight:1000;
+ box-shadow:0 14px 34px rgba(46,188,231,.18)
+}
+.enter-house span{text-align:left;font-size:14px}
+.enter-house small{display:block;font-size:7px;letter-spacing:.14em;opacity:.62}
+.enter-house>b{font-size:23px}
+.how-new{
+ width:100%;margin-top:8px;padding:9px;border-radius:10px;
+ border:1px solid #273850;background:#10182a;color:#aab7ca
+}
+.career-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:18px}
+.career-row span{text-align:center;padding:8px;background:#0b1220;border-radius:9px}
+.career-row small{display:block;font-size:7px;color:#64738a}
+.career-row b{font-size:13px}
+
+/* --- gameplay stage --- */
+#game.active{background:#060912}
+.stage{
+ position:relative;overflow:hidden;
+ background:radial-gradient(circle at 50% 35%,#18283d,#05070c 72%);
+}
+.stage canvas{
+ border-radius:14px;
+ box-shadow:0 24px 70px rgba(0,0,0,.48),0 0 0 1px rgba(255,255,255,.08);
+}
+#broadcastBar{
+ position:absolute;z-index:18;top:12px;left:50%;transform:translateX(-50%);
+ display:flex;align-items:center;gap:10px;
+ min-width:340px;max-width:65%;padding:8px 12px;border-radius:999px;
+ background:rgba(6,10,18,.88);border:1px solid rgba(255,255,255,.12);
+ backdrop-filter:blur(12px);box-shadow:0 8px 25px rgba(0,0,0,.26);
+}
+.broadcast-live{font-size:8px;font-weight:1000;color:#ff5878;letter-spacing:.1em}
+#broadcastTitle{font-size:10px;letter-spacing:.07em;color:#f6f8ff}
+#broadcastClock{margin-left:auto;font-size:9px;color:#8fa1b9}
+
+#eventBoard{
+ position:absolute;z-index:16;right:14px;top:56px;width:min(330px,37%);
+ margin:0;padding:11px 12px;border-radius:12px;
+ background:rgba(8,13,23,.88);backdrop-filter:blur(11px);
+ border:1px solid rgba(255,255,255,.1);box-shadow:0 10px 28px rgba(0,0,0,.25)
+}
+#eventBoardCurrent{font-size:11px;min-height:0}
+#eventBoardPhase{font-size:9px}
+.eventBoardTop strong{font-size:9px}
+#historyBtn{padding:4px 7px;font-size:8px;background:#17243a;color:#b9c7da;border:1px solid #31445f}
+
+#topHud{
+ top:auto;bottom:44px;left:14px;gap:5px;z-index:14;
+}
+.hudchip{
+ background:rgba(6,12,21,.86);backdrop-filter:blur(8px);
+ border-color:rgba(255,255,255,.11);padding:6px 8px
+}
+#roomBadge{top:16px;left:14px;z-index:14}
+#missionBadge{top:48px;left:14px;z-index:14;max-width:250px}
+#prompt{bottom:12px;left:14px;opacity:.7}
+
+.interaction-dock{
+ position:absolute;z-index:19;left:50%;bottom:13px;transform:translateX(-50%);
+ min-width:330px;display:flex;align-items:center;justify-content:space-between;gap:18px;
+ padding:9px 12px;border-radius:12px;background:rgba(7,12,21,.92);
+ border:1px solid rgba(104,220,255,.28);box-shadow:0 10px 30px rgba(0,0,0,.35);
+ backdrop-filter:blur(12px)
+}
+.interaction-dock.hidden{display:none}
+.interaction-dock small{display:block;font-size:7px;letter-spacing:.14em;color:#67dfff}
+.interaction-dock b{font-size:12px}
+.interaction-dock span{display:block;font-size:8px;color:#8190a5}
+.interactionKeys{font-size:9px;color:#aab7c8;white-space:nowrap}
+kbd{
+ display:inline-block;min-width:21px;text-align:center;padding:3px 5px;margin:0 2px;
+ border-radius:5px;background:#e9eff8;color:#101827;font-weight:1000;font:9px system-ui
+}
+
+/* --- sidebar --- */
+aside{
+ width:350px;padding:16px;background:linear-gradient(180deg,#0d1422,#080d17);
+ border-left:1px solid rgba(255,255,255,.09);
+}
+.aside-head{
+ padding:4px 2px 13px;border-bottom:1px solid rgba(255,255,255,.08);
+}
+.aside-head h2{font-size:17px;letter-spacing:-.03em}
+.status{
+ margin:11px 0;padding:10px;background:#101a2b;border-color:#273951;
+}
+.buttons{grid-template-columns:repeat(3,1fr)}
+.buttons button{padding:7px 4px;font-size:8px;background:#151f31;border-color:#2b3b53}
+.side-section-title{
+ display:flex;align-items:flex-end;justify-content:space-between;gap:8px;
+ margin:15px 0 7px
+}
+.side-section-title>span{font-size:8px;font-weight:1000;letter-spacing:.16em;color:#72839b}
+.side-section-title>small{font-size:7px;color:#536279;text-align:right}
+.side-section-title button{
+ font-size:7px;padding:4px 6px;border:1px solid #2a3a51;border-radius:6px;
+ background:#111a2a;color:#8fa1b8
+}
+.person{
+ border:1px solid transparent;background:#111a2a;padding:6px;border-radius:9px;
+}
+.person:hover{border-color:#2d415e;background:#152137}
+.person img{background:#0a111e}
+#feed{
+ max-height:210px;overflow:auto;padding-right:3px;
+ border-top:1px solid rgba(255,255,255,.05)
+}
+.eventline{
+ padding:7px 2px;font-size:9px;color:#aebcce;border-color:#1d2a3c
+}
+
+/* responsive */
+@media(max-width:950px){
+ .landing-grid{grid-template-columns:1fr}
+ .landing-story{display:none}
+ .entry-card{max-width:520px;margin:auto}
+ #eventBoard{width:46%}
+}

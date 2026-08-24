@@ -568,7 +568,7 @@ function start(){
    else addFeed("✅ Autoteste de mapa, NPCs e runtime concluído.");
  }catch(err){console.warn("Autoteste não bloqueante:",err);addFeed("⚠️ Autoteste ignorado para não bloquear a partida.")}
  if(activeMission)addFeed(`🎯 MISSÃO SECRETA: ${activeMission.text}`);
- toast("CASA EM JOGO • V1.6.3");
+ toast("CASA EM JOGO • V1.7.0");
  try{startMusic()}catch(err){console.warn("Áudio indisponível:",err)}
  last=performance.now();
  // desenha uma vez imediatamente: personagem aparece mesmo antes do primeiro frame agendado
@@ -903,19 +903,22 @@ function saveConfession(text){
 function showGossip(){modal("📺 CENTRAL DE FOFOCAS",gossips.length?gossips.slice(0,6).map((g,i)=>`${i+1}. ${g}`).join("\n\n"):"Ainda não há fofocas registradas.",["FECHAR"],closeModal)}
 
 function randomEvent(){
+ const alive=alivePeople();
+ if(!alive.length)return;
+
+ const a=pick(alive), b=pick(alive.filter(p=>p!==a));
  const events=[
- ["📞 TELEFONE DA CASA","O telefone tocou e um participante ganhou uma consequência."],
- ["🎉 FESTA","A produção liberou festa. Interações sociais valem mais."],
- ["💌 CORREIO ANÔNIMO","Uma mensagem misteriosa apareceu na sala."],
- ["👀 VOTOS REVELADOS","Alguns votos poderão ser expostos depois da cerimônia."],
- ["💎 PODER SECRETO","Existe uma vantagem escondida na casa."],
- ["🍿 CINEMA DA CASA","Momentos comprometores da temporada foram exibidos."],
- ["🔥 TRETA","Dois participantes começaram uma discussão no lounge."],
- ["🚨 SINCERÃO","Alguns participantes precisarão apontar aliados e rivais."],
- ["🎯 MIRA","O Chefe deverá revelar publicamente três possíveis alvos."],
- ["🧊 CASTIGO","Um participante recebeu uma tarefa incômoda pela casa."]
+  ()=>a&&addFeed(`📞 TELEFONE: ${a.name} atendeu e ganhou informação privilegiada.`),
+  ()=>a&&b&&addFeed(`👀 CLIMÃO: ${a.name} evitou ${b.name} depois de uma conversa estranha.`),
+  ()=>a&&addFeed(`💌 CORREIO ANÔNIMO: uma mensagem citando ${a.name} apareceu na sala.`),
+  ()=>a&&b&&addFeed(`🔥 TRETA: ${a.name} e ${b.name} trocaram farpas pela casa.`),
+  ()=>a&&addFeed(`🎯 MIRA: ${a.name} virou assunto como possível alvo da semana.`),
+  ()=>a&&b&&addFeed(`🤝 APROXIMAÇÃO: ${a.name} e ${b.name} passaram bastante tempo juntos.`)
  ];
- let e=pick(events);if(!e)return;if(!Array.isArray(gossips))gossips=[];eventName=e[0];addFeed(`${e[0]} ${e[1]}`);toast(e[0]);if(e[0].includes("TELEFONE"))grantPower(pick(["Voto Duplo","Escudo Secreto","Espião","Moedas"]));if(e[0].includes("PODER SECRETO"))grantPower(pick(["Voto Duplo","Espião","Moedas"]));if(Math.random()<.45)gossips.unshift(e[1]);setTimeout(()=>eventName="",5500)
+ const event=pick(events);
+ if(event)event();
+ eventName="📺 MOVIMENTO NA CASA";
+ setTimeout(()=>eventName="",8000)
 }
 
 function startChallenge(){
@@ -1189,7 +1192,7 @@ function runSelfTest(){
   if(!path.length)issues.push(`${p.name} sem rota em ${room}`)
  });
 
- console.log("[Casa em Jogo V1.6.3] autoteste:",issues.length?issues:"OK");
+ console.log("[Casa em Jogo V1.7.0] autoteste:",issues.length?issues:"OK");
  return issues
 }
 
@@ -1216,13 +1219,36 @@ function ui(){if(!me)return;normalizeStats();document.querySelector("#energy").t
    board.textContent=latest;
  }
  if(phaseEl)phaseEl.textContent=weekFlowStatusText();
+
+ const bTitle=document.querySelector("#broadcastTitle");
+ const bClock=document.querySelector("#broadcastClock");
+ if(bTitle)bTitle.textContent=(REALITY.phase||"CONVIVÊNCIA").toUpperCase();
+ if(bClock)bClock.textContent=weekFlowStatusText();
+
+ const dock=document.querySelector("#interactionDock");
+ const iName=document.querySelector("#interactionName");
+ const iMeta=document.querySelector("#interactionMeta");
+ if(dock){
+   if(near&&near.alive){
+     dock.classList.remove("hidden");
+     if(iName)iName.textContent=near.name;
+     if(iMeta){
+       const rel=relationship?.[near.name];
+       const mood=typeof livingMood==="function"?livingMood(near):"";
+       iMeta.textContent=`${mood} ${near.activity||"pela casa"}${rel?` • confiança ${rel.trust}`:""}`;
+     }
+   }else{
+     dock.classList.add("hidden")
+   }
+ }
 }
 function alivePeople(){return people.filter(p=>p.alive)}
 function addFeed(t){
  if(!Array.isArray(feed))feed=[];
  feed.unshift(String(t??""));
- feed=feed.slice(0,11)
+ feed=feed.slice(0,24)
 }
+
 function modal(title,text,choices=[],cb=null){
  const modalEl=document.querySelector("#modal");
  if(!modalEl)return;
@@ -1264,6 +1290,251 @@ function stopMusic(){if(musicTimer){clearInterval(musicTimer);musicTimer=null}}
 // ============================================================
 // CASA EM JOGO V1.5 — REALITY UPDATE
 // ============================================================
+
+
+// ============================================================
+// V1.7 — SHOWTIME CYCLE
+// ============================================================
+const SHOWTIME={
+ strategyTime:0,
+ ceremonyNominee:null,
+ houseNominee:null,
+ publicNominees:[],
+ lastEviction:null
+};
+
+function showtimeAlive(){
+ return typeof alivePeople==="function"?alivePeople():people.filter(p=>p.alive)
+}
+
+function showtimeThreatScore(p){
+ if(!p)return 0;
+ let score=(p.wins||0)*14;
+ if(REALITY.leader===p)score+=16;
+ if(REALITY.lastWinner===p)score+=8;
+ score+=Math.max(0,Number(p.rep||0)-50)*.2;
+ score+=Math.random()*18;
+ return score
+}
+
+function showtimeLeaderTarget(){
+ const alive=showtimeAlive();
+ const leaderP=REALITY.leader;
+ const options=alive.filter(p=>p!==leaderP&&!REALITY.immune.has(realityPersonKey(p)));
+ if(!options.length)return null;
+
+ if(leaderP?.human)return null;
+
+ return options.map(p=>{
+   const dislike=leaderP?-realityRel(leaderP,p):0;
+   return [p,dislike+showtimeThreatScore(p)]
+ }).sort((a,b)=>b[1]-a[1])[0][0]
+}
+
+function showtimeChooseLeaderNominee(done){
+ const alive=showtimeAlive();
+ const leaderP=REALITY.leader;
+ const options=alive.filter(p=>p!==leaderP&&!REALITY.immune.has(realityPersonKey(p)));
+
+ if(!options.length)return done(null);
+
+ if(leaderP?.human){
+   modal("👑 INDICAÇÃO DO LÍDER",
+     "Você é o Líder. Escolha uma pessoa para indicar diretamente ao Paredão.",
+     options.map(p=>p.name),
+     name=>{
+       const p=options.find(x=>x.name===name);
+       closeModal();
+       done(p||options[0])
+     })
+ }else{
+   const target=showtimeLeaderTarget()||pick(options);
+   eventLog(`👑 ${leaderP?.name||"O Líder"} indicou ${target.name} ao Paredão.`,10);
+   done(target)
+ }
+}
+
+function showtimeHouseVote(playerVoteName=null){
+ const alive=showtimeAlive();
+ const tally=new Map();
+ const leaderNom=SHOWTIME.ceremonyNominee;
+
+ alive.forEach(voter=>{
+   let target=null;
+
+   if(voter===me && playerVoteName){
+     target=alive.find(p=>p.name===playerVoteName)
+   }else{
+     const options=alive.filter(p=>
+       p!==voter &&
+       p!==leaderNom &&
+       p!==REALITY.leader &&
+       !REALITY.immune.has(realityPersonKey(p))
+     );
+     if(options.length){
+       target=options.map(p=>{
+         const dislike=-realityRel(voter,p);
+         const threat=showtimeThreatScore(p);
+         return [p,dislike+threat+Math.random()*24]
+       }).sort((a,b)=>b[1]-a[1])[0][0]
+     }
+   }
+
+   if(target){
+     tally.set(target,(tally.get(target)||0)+1);
+     realityRemember(voter,`Votei em ${target.name} na formação do Paredão.`)
+   }
+ });
+
+ const ranked=[...tally.entries()].sort((a,b)=>b[1]-a[1]);
+ SHOWTIME.houseNominee=ranked[0]?.[0]||null;
+
+ if(ranked.length){
+   const line=ranked.slice(0,4).map(([p,n])=>`${p.name}: ${n}`).join(" • ");
+   eventLog(`🗳️ VOTAÇÃO DA CASA — ${line}`,11)
+ }
+
+ return SHOWTIME.houseNominee
+}
+
+function showtimePublicVote(nominees){
+ const unique=[...new Set(nominees.filter(Boolean))];
+ if(unique.length<2){
+   const extra=showtimeAlive().find(p=>!unique.includes(p)&&p!==REALITY.leader);
+   if(extra)unique.push(extra)
+ }
+ if(unique.length<2)return;
+
+ const scored=unique.map(p=>{
+   // público pune ameaça, baixa reputação e conflito; inclui ruído.
+   const threat=showtimeThreatScore(p);
+   const playerRep=p===me?stats.rep:50+realityRel(p,me)*.15;
+   const dislike=Math.max(0,55-playerRep);
+   return {p,raw:35+threat+dislike+Math.random()*35}
+ });
+ const total=scored.reduce((a,x)=>a+x.raw,0)||1;
+ const percentages=scored.map(x=>({p:x.p,pct:x.raw/total*100})).sort((a,b)=>b.pct-a.pct);
+
+ const out=percentages[0];
+ SHOWTIME.publicNominees=percentages;
+ SHOWTIME.lastEviction=out.p;
+
+ const lines=percentages.map(x=>`${x.p.name} — ${x.pct.toFixed(1)}%`).join("\n");
+
+ modal("🚪 RESULTADO DO PAREDÃO",
+   `${lines}\n\n${out.p.name} recebeu a maior rejeição e está eliminado.`,
+   ["CONTINUAR"],()=>{
+     closeModal();
+     showtimeEliminate(out.p,percentages)
+   })
+}
+
+function showtimeEliminate(p,percentages){
+ if(!p||!p.alive)return showtimeStartNextDay();
+
+ p.alive=false;
+ livingSetMood?.(p,"😢");
+ realityHistory(`🚪 ${p.name} foi eliminado com ${percentages[0].pct.toFixed(1)}%.`);
+ eventLog(`🚪 ${p.name} deixou a Casa em Jogo.`,12);
+
+ showtimeAlive().forEach(other=>{
+   if(other===p)return;
+   const rel=realityRel(other,p);
+   if(rel>35){
+     livingSetMood?.(other,"😢",`${p.name} foi eliminado.`);
+     livingThought?.(other,`Perdi ${p.name} no jogo...`)
+   }else if(rel<-25){
+     livingSetMood?.(other,"😌");
+     livingThought?.(other,`${p.name} sair muda meu jogo.`)
+   }
+ });
+
+ if(p===me){
+   WEEKFLOW.phase="eliminated";
+   return modal("VOCÊ FOI ELIMINADO",
+     `Sua temporada terminou no Dia ${REALITY.day}.\n\nVocê ainda pode iniciar uma nova temporada.`,
+     ["NOVA TEMPORADA"],()=>location.reload())
+ }
+
+ if(showtimeAlive().length<=3){
+   return typeof final==="function"?final():null
+ }
+
+ setTimeout(showtimeStartNextDay,8000)
+}
+
+function showtimeStartNextDay(){
+ REALITY.day++;
+ round++;
+ phase="social";
+ leader="";
+ immune="";
+ REALITY.leader=null;
+ REALITY.angel=null;
+ REALITY.immune.clear();
+ REALITY.partyActive=false;
+ REALITY.partyPending=false;
+
+ WEEKFLOW.phase="convivencia";
+ WEEKFLOW.socialTime=70;
+ WEEKFLOW.announceTime=8;
+ WEEKFLOW.challengeType="lider";
+ SHOWTIME.strategyTime=0;
+ SHOWTIME.ceremonyNominee=null;
+ SHOWTIME.houseNominee=null;
+
+ REALITY.phase="Convivência";
+ realityMiniObjective();
+ realityHistory(`🌅 Começou o Dia ${REALITY.day}.`);
+ eventLog(`🌅 DIA ${REALITY.day}: nova convivência. A próxima Prova do Líder será em 70 segundos.`,10)
+}
+
+function showtimeBeginStrategy(){
+ WEEKFLOW.phase="strategy";
+ SHOWTIME.strategyTime=42;
+ REALITY.phase="Estratégia";
+ eventLog("🧠 ESTRATÉGIA: 42 segundos para conversar antes da formação do Paredão.",10);
+ realityShowGossip()
+}
+
+function showtimeBeginCeremony(){
+ if(WEEKFLOW.phase==="ceremony")return;
+ WEEKFLOW.phase="ceremony";
+ REALITY.phase="Formação do Paredão";
+ eventLog("🚨 FORMAÇÃO DO PAREDÃO começou.",12);
+
+ showtimeChooseLeaderNominee(nominee=>{
+   SHOWTIME.ceremonyNominee=nominee;
+   if(nominee)realityHistory(`👑 ${nominee.name} foi indicado pelo Líder.`);
+
+   const options=showtimeAlive().filter(p=>
+     p!==me &&
+     p!==nominee &&
+     p!==REALITY.leader &&
+     !REALITY.immune.has(realityPersonKey(p))
+   );
+
+   if(!me?.alive){
+     const house=showtimeHouseVote();
+     return showtimePublicVote([nominee,house])
+   }
+
+   if(!options.length){
+     const house=showtimeHouseVote();
+     return showtimePublicVote([nominee,house])
+   }
+
+   modal("🗳️ SEU VOTO",
+     `O Líder indicou ${nominee?.name||"um participante"}.\n\nAgora escolha seu voto da casa.`,
+     options.map(p=>p.name),
+     name=>{
+       closeModal();
+       const house=showtimeHouseVote(name);
+       if(house)realityHistory(`🗳️ ${house.name} recebeu mais votos da casa.`);
+       setTimeout(()=>showtimePublicVote([nominee,house]),1800)
+     })
+ })
+}
 
 const WEEKFLOW={
  started:false,
@@ -1376,25 +1647,30 @@ function resolveInteractiveChallenge(type,playerScore,error){
  const winner=results[0]?.p;
  if(!winner)return;
 
- if(type==="lider"){
-   realitySetLeader(winner)
- }else{
-   realitySetAngel(winner)
- }
+ if(type==="lider")realitySetLeader(winner);
+ else realitySetAngel(winner);
 
- const yourPos=Math.max(1,results.findIndex(x=>x.p===player)+1);
- const yourScore=Math.round(playerScore);
- eventLog(`🏁 Você ficou em ${yourPos}º na Prova do ${type==="lider"?"Líder":"Anjo"} com ${yourScore} pontos.`,9);
+ const yourIndex=results.findIndex(x=>x.p===player);
+ const yourPos=yourIndex>=0?yourIndex+1:results.length;
+ eventLog(`🏁 Você ficou em ${yourPos}º na Prova do ${type==="lider"?"Líder":"Anjo"} com ${Math.round(playerScore)} pontos.`,10);
 
  WEEKFLOW.phase="postChallenge";
  setTimeout(()=>{
    if(type==="lider"){
-     beginChallengeAnnouncement("anjo")
+     // pausa real antes do Anjo
+     WEEKFLOW.phase="convivenciaAnjo";
+     REALITY.phase="Intervalo";
+     eventLog("☕ Intervalo de 12 segundos antes da Prova do Anjo.",9);
+     setTimeout(()=>beginChallengeAnnouncement("anjo"),12000)
    }else{
-     if(REALITY.partyPending)realityStartParty();
-     WEEKFLOW.phase="party";
+     if(REALITY.partyPending){
+       WEEKFLOW.phase="party";
+       realityStartParty()
+     }else{
+       showtimeBeginStrategy()
+     }
    }
- },9000)
+ },8500)
 }
 
 function updateWeekFlow(dt){
@@ -1407,38 +1683,41 @@ function updateWeekFlow(dt){
  if(WEEKFLOW.phase==="convivencia"){
    WEEKFLOW.socialTime=Math.max(0,WEEKFLOW.socialTime-dt);
    if(WEEKFLOW.socialTime<=0)beginChallengeAnnouncement("lider")
- }else if(WEEKFLOW.phase==="announcement"){
+   return
+ }
+
+ if(WEEKFLOW.phase==="announcement"){
    WEEKFLOW.announceTime=Math.max(0,WEEKFLOW.announceTime-dt);
    if(WEEKFLOW.announceTime<=0)beginInteractiveChallenge(WEEKFLOW.challengeType)
+   return
+ }
+
+ if(WEEKFLOW.phase==="party"){
+   // realityStartParty encerra a flag automaticamente.
+   if(!REALITY.partyActive && !REALITY.partyPending){
+     showtimeBeginStrategy()
+   }
+   return
+ }
+
+ if(WEEKFLOW.phase==="strategy"){
+   SHOWTIME.strategyTime=Math.max(0,SHOWTIME.strategyTime-dt);
+   if(SHOWTIME.strategyTime<=0)showtimeBeginCeremony()
  }
 }
 
 function weekFlowStatusText(){
  if(!WEEKFLOW.started)return "";
- if(WEEKFLOW.phase==="convivencia")return `🏠 Convivência • Prova em ${Math.ceil(WEEKFLOW.socialTime)}s`;
- if(WEEKFLOW.phase==="announcement")return `📢 Prova em ${Math.ceil(WEEKFLOW.announceTime)}s`;
+ if(WEEKFLOW.phase==="convivencia")return `🏠 Convivência • Líder em ${Math.ceil(WEEKFLOW.socialTime)}s`;
+ if(WEEKFLOW.phase==="announcement")return `📢 ${WEEKFLOW.challengeType==="lider"?"Líder":"Anjo"} em ${Math.ceil(WEEKFLOW.announceTime)}s`;
  if(WEEKFLOW.phase==="challenge")return `🏆 Prova do ${WEEKFLOW.challengeType==="lider"?"Líder":"Anjo"} em andamento`;
- if(WEEKFLOW.phase==="party")return "🎉 Festa";
+ if(WEEKFLOW.phase==="convivenciaAnjo")return "☕ Intervalo antes do Anjo";
+ if(WEEKFLOW.phase==="party")return "🎉 Festa em andamento";
+ if(WEEKFLOW.phase==="strategy")return `🧠 Estratégia • Paredão em ${Math.ceil(SHOWTIME.strategyTime)}s`;
+ if(WEEKFLOW.phase==="ceremony")return "🚨 Formação do Paredão";
+ if(WEEKFLOW.phase==="eliminated")return "🚪 Eliminado";
  return REALITY.phase||""
 }
-
-const REALITY={
- day:1,
- phase:"Convivência",
- leader:null,
- angel:null,
- immune:new Set(),
- partyPending:false,
- partyActive:false,
- confessionQueue:[],
- confessionBusy:false,
- history:[],
- lastWinner:null,
- relationships:new Map(),
- alliances:[],
- memories:new Map(),
- gossipLog:[]
-};
 
 function realityPersonKey(p){return p?.name||"Participante"}
 function realityAlive(){return people.filter(p=>!p.eliminated)}
@@ -2153,3 +2432,8 @@ setTimeout(()=>{
  if(hb)hb.onclick=()=>showSeasonHistory()
 },0);
 
+
+setTimeout(()=>{
+ const sh=document.querySelector("#sideHistoryBtn");
+ if(sh)sh.onclick=()=>showSeasonHistory()
+},0);
