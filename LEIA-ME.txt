@@ -1,18 +1,21 @@
-CASA EM JOGO — V1.3.4 BLUE-LINES FIX
+CASA EM JOGO — V1.3.5 MORE WALKABLE AREAS
 
-Recalibração feita usando as marcações azuis enviadas pelo usuário.
+Esta versão corrige especificamente as novas faixas marcadas em azul.
 
-Agora foram explicitamente testados:
-- os dois lados da ilha da cozinha;
-- ligação cozinha/sala;
-- faixa inferior da sala;
-- sala/hall/pátio;
-- corredor até o quarto;
-- corredor horizontal e vertical do quarto;
-- lado direito do corredor;
-- miolo vertical do lounge;
-- acesso lounge/confessionário;
-- circulação interna do confessionário.
+Áreas abertas/recalibradas:
+- lateral direita da cozinha;
+- faixa abaixo do sofá da sala;
+- canto inferior direito da sala;
+- corredor vertical central do quarto;
+- faixa direita do corredor;
+- eixo vertical do lounge;
+- faixa direita do lounge;
+- lateral esquerda do confessionário;
+- lateral direita do confessionário;
+- circulação inferior ao redor da cadeira/câmera.
 
-O raio físico do personagem foi reduzido para 7 px e a grade de navegação para 5 px.
-Isso evita paredes invisíveis em corredores estreitos sem permitir atravessar móveis.
+Também:
+- hitbox física do jogador: 6 px;
+- grade do pathfinding: 4 px;
+- obstáculos foram afinados ao contorno real dos móveis;
+- as rotas antigas foram testadas novamente para evitar regressão.
