@@ -1,45 +1,21 @@
-CASA EM JOGO — V1.1
+CASA EM JOGO — V1.1.2 — CORREÇÃO DO MAPA
 
-NOVIDADES
-• Tela inicial totalmente redesenhada usando o cenário como fundo.
-• 8 sprites refeitos em 32x48 por frame, 4 direções x 4 frames.
-• 8 retratos pixel art novos.
-• Retratos reais na caixa de diálogo e lista lateral.
-• Perfil permanente com temporadas, vitórias e moedas (localStorage).
-• Missões secretas com progresso e recompensa.
-• Inventário de poderes.
-• Voto Duplo, Escudo Secreto, Espião e prêmio de Moedas.
-• Telefone/Poder Secreto entregam poderes reais.
-• Relações influenciam votos dos bots.
-• Estilos iniciais alteram atributos.
-• Dia/noite.
-• Coroa visual no Chefe e anel no imune.
-• Painéis de Perfil, Missões, Poderes e Como Jogar.
+CORREÇÃO PRINCIPAL
+A V1.1 dependia do navegador carregar assets/cenario_casa.png por caminho relativo
+ao abrir index.html usando file://. Em alguns navegadores isso podia deixar o canvas
+sem cenário mesmo com o PNG presente.
 
-REVISÃO DE BUGS 1
-• node --check: OK.
-• IDs usados no JS comparados ao HTML: OK.
-• Nenhuma função duplicada.
-• safePoint única.
-• Nenhuma referência antiga a WALK.
-• Limites de energia uniformizados.
+Nesta versão:
+• O cenário ORIGINAL enviado pelo usuário continua em assets/cenario_casa.png.
+• Uma cópia idêntica do PNG também fica EMBUTIDA no game.js como Data URI.
+• O botão Entrar na Casa espera map.decode() terminar antes de iniciar.
+• O jogo confirma naturalWidth/naturalHeight antes de desenhar.
+• O canvas também tem o PNG como background CSS de segurança.
+• Se houver falha, aparece uma mensagem visível em vez de uma tela vazia.
 
-MELHORIA APÓS QA
-• Adicionado seasonSaved para impedir progresso permanente contado duas vezes.
-• Escudo Secreto não é desperdiçado quando o jogador já é Chefe/Imune.
-
-REVISÃO DE BUGS 2
-• node --check executado novamente: OK.
-• IDs verificados novamente: OK.
-• Funções duplicadas verificadas novamente: OK.
-• 8 sprites confirmados em 128x192.
-• 8 retratos confirmados.
-• Sistemas de perfil, missão e poderes presentes.
-
-CONTROLES
-WASD/setas: andar
-SHIFT: correr
-E: conversar
-F: interagir
-H: colisões
-ESPAÇO: completar diálogo
+TESTES
+• PNG conferido: 1024 × 765.
+• JavaScript: node --check OK.
+• Data URI do cenário confirmada no game.js.
+• IDs HTML x JavaScript: OK.
+• Funções duplicadas: nenhuma.
